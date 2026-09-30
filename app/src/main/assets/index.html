@@ -1,9 +1,33 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><title>Writer – Document Editor</title>
 <script src="vendor/mammoth.browser.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="docximport.js"></script>
 <script src="vendor/docx.umd.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <style>
+@font-face{font-family:'Carlito';font-weight:400;font-style:normal;src:url(vendor/fonts/carlito-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Carlito';font-weight:400;font-style:italic;src:url(vendor/fonts/carlito-latin-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Carlito';font-weight:700;font-style:normal;src:url(vendor/fonts/carlito-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Carlito';font-weight:700;font-style:italic;src:url(vendor/fonts/carlito-latin-700-italic.woff2) format('woff2')}
+@font-face{font-family:'Tinos';font-weight:400;font-style:normal;src:url(vendor/fonts/tinos-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Tinos';font-weight:400;font-style:italic;src:url(vendor/fonts/tinos-latin-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Tinos';font-weight:700;font-style:normal;src:url(vendor/fonts/tinos-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Tinos';font-weight:700;font-style:italic;src:url(vendor/fonts/tinos-latin-700-italic.woff2) format('woff2')}
+@font-face{font-family:'Arimo';font-weight:400;font-style:normal;src:url(vendor/fonts/arimo-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Arimo';font-weight:400;font-style:italic;src:url(vendor/fonts/arimo-latin-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Arimo';font-weight:700;font-style:normal;src:url(vendor/fonts/arimo-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Arimo';font-weight:700;font-style:italic;src:url(vendor/fonts/arimo-latin-700-italic.woff2) format('woff2')}
+@font-face{font-family:'Caladea';font-weight:400;font-style:normal;src:url(vendor/fonts/caladea-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Caladea';font-weight:400;font-style:italic;src:url(vendor/fonts/caladea-latin-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Caladea';font-weight:700;font-style:normal;src:url(vendor/fonts/caladea-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Caladea';font-weight:700;font-style:italic;src:url(vendor/fonts/caladea-latin-700-italic.woff2) format('woff2')}
+@font-face{font-family:'Cousine';font-weight:400;font-style:normal;src:url(vendor/fonts/cousine-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Cousine';font-weight:400;font-style:italic;src:url(vendor/fonts/cousine-latin-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Cousine';font-weight:700;font-style:normal;src:url(vendor/fonts/cousine-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Cousine';font-weight:700;font-style:italic;src:url(vendor/fonts/cousine-latin-700-italic.woff2) format('woff2')}
+#ed{white-space:pre-wrap;tab-size:48px}.pb{display:flex;justify-content:space-between;border-top:1px dashed #999;color:#888;font:11px sans-serif;padding:2px 0!important;user-select:none}.pb .x{cursor:pointer;font-style:normal}.exporting .pb{visibility:hidden}
+
 :root{--bg:#eef1f6;--bar:#ffffff;--panel:#f6f8fc;--ink:#1f2430;--muted:#6b7280;--line:#dce1ea;--acc:#2f6fed;--hov:#eef3ff;--active:#dfe8ff;--sh:0 1px 2px rgba(20,30,60,.06),0 6px 20px rgba(20,30,60,.06);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1216;--bar:#171b22;--panel:#1c212a;--ink:#e6e8ee;--muted:#94a0b3;--line:#2b323d;--hov:#222b3a;--active:#26344d}}
 :root[data-theme="dark"]{--bg:#0f1216;--bar:#171b22;--panel:#1c212a;--ink:#e6e8ee;--muted:#94a0b3;--line:#2b323d;--hov:#222b3a;--active:#26344d}
@@ -118,7 +142,7 @@ button:disabled{opacity:.4;cursor:default}
 const $=s=>document.querySelector(s),ed=$('#ed'),paper=$('#paper'),M=96;
 const mg={t:96,b:96,l:96,r:96};
 let land=false,saved=null,lastCell=null,curSec=0,z=1,cfg0={fmt:'dec',start:'1',align:'center'},sbP=[];
-const dim=()=>land?[1123,794]:[794,1123];
+let psz=[794,1123];const dim=()=>land?[psz[1],psz[0]]:psz.slice();
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t.h);t.h=setTimeout(()=>t.style.display='none',2600)};
 const rom=n=>{let r='';[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']].forEach(([v,s])=>{while(n>=v){r+=s;n-=v}});return r};
 const fmtN=(n,f)=>f=='dec'?n:f=='rl'?rom(n).toLowerCase():f=='ru'?rom(n):'';
@@ -156,7 +180,7 @@ const sync=()=>{
 
 function canSplit(b){
   if(!/^(P|DIV|BLOCKQUOTE)$/.test(b.tagName)) return false;
-  if(b.classList.contains('sb')) return false;
+  if(b.classList.contains('sb')||b.classList.contains('pb')) return false;
   if(b.querySelector('img,table,ul,ol,h1,h2,h3,h4,h5,h6')) return false;
   return (b.textContent || '').replace(/\s+/g,' ').trim().length > 120;
 }
@@ -265,7 +289,7 @@ function layout(){
       sh = st - t;
     } else if(/^H[1-6]$/.test(b.tagName) && t > st && t + h + 48 > en){
       sh = nx - t;
-    } else if(t + h > en && h <= us * 0.85 && t > st + 8){
+    } else if(t + h > en && h <= us * 0.85 && t > st + 8 && !b.classList.contains('pb')){
       sh = nx - t;
     }
     if(sh > 0){
@@ -276,7 +300,7 @@ function layout(){
       en = (p + 1) * H - Math.max(mg.b, footerReserve + 8);
       nx = (p + 1) * H + mg.t;
     }
-    if(t + h > en && !b.classList.contains('sb')){
+    if(t + h > en && !b.classList.contains('sb') && !b.classList.contains('pb')){
       if(typeof canSplit === 'function' && canSplit(b)){
         if(!splitBlock(b, p) && t > st){
           b.style.marginTop = (nx - t + sh) + 'px';
@@ -285,6 +309,7 @@ function layout(){
         b.style.marginTop = (nx - t + sh) + 'px';
       }
     }
+    if(b.classList.contains('pb')){ fp = Math.floor(b.offsetTop / H); force = true; }
     if(b.classList.contains('sb')){
       fp = Math.floor(b.offsetTop / H);
       sbP.push(fp);
@@ -345,7 +370,7 @@ function addSection(){restore();const b=curBlock()||ed.lastElementChild;const d=
  Object.assign(d.dataset,{fmt:'dec',start:'1',align:'center'});d.innerHTML='<span>Section break (next page)</span><i class="x" title="Remove break">✕</i>';
  b.after(d);curSec=sbs().indexOf(d)+1;if(!d.nextElementSibling){const p=document.createElement('p');p.innerHTML='<br>';d.after(p)}layout();toast('Section break added – set its numbering under Page & Sections')}
 $('#iSec').onclick=$('#iSec2').onclick=addSection;
-ed.addEventListener('click',e=>{if(e.target.classList.contains('x')){e.target.closest('.sb').remove();layout()}});
+ed.addEventListener('click',e=>{if(e.target.classList.contains('x')){e.target.closest('.sb,.pb').remove();layout()}});
 /* ---------- editing commands ---------- */
 function restore(){if(saved){ed.focus();const s=getSelection();s.removeAllRanges();s.addRange(saved)}}
 const ex=(c,v)=>{restore();document.execCommand(c,false,v);sync()};
@@ -503,6 +528,10 @@ const fname=ext=>($('#title').value.trim()||'document')+ext;
 $('#fOpen').onchange=async e=>{const f=e.target.files[0];if(!f)return;
  try{
   const ab=await f.arrayBuffer();
+  let imp=null;try{imp=await QuilloDocx.import(ab)}catch(err){console.error('native import failed',err)}
+  if(imp){ed.innerHTML=imp.html;psz=imp.psz;land=imp.land;Object.assign(mg,imp.mg);cfg0=imp.cfg0;$('#ori').value=land?'l':'p';window.showMargins&&showMargins();
+   $('#title').value=f.name.replace(/\.docx$/i,'');hist=[];hi=-1;push();
+   requestAnimationFrame(()=>{fit();layout();$('#wrap').scrollTop=0;toast('Opened '+f.name)});e.target.value='';return}
   const r=await mammoth.convertToHtml({arrayBuffer:ab},{
     styleMap:[
       "p[style-name='Title'] => h1:fresh",
@@ -542,8 +571,11 @@ function runs(c,out=[]){for(const n of c.childNodes){
  else if(n.tagName=='IMG'&&n.src.startsWith('data:')){const b=Uint8Array.from(atob(n.src.split(',')[1]),ch=>ch.charCodeAt(0)),m=n.src.match(/image\/(\w+)/)[1];
   out.push(new (D().ImageRun)({data:b,type:m=='jpeg'?'jpg':m,transformation:{width:n.width||100,height:n.height||100}}))}
  else if(n.nodeType==1&&!/^(UL|OL|TABLE|IMG)$/.test(n.tagName))runs(n,out)}return out}
+function pfmt(cs){const n=v=>Math.round((parseFloat(v)||0)*15),fs=parseFloat(cs.fontSize),lh=parseFloat(cs.lineHeight),ti=parseFloat(cs.textIndent)||0;
+ const sp={before:n(cs.paddingTop),after:n(cs.paddingBottom)};if(lh&&fs){sp.line=Math.round(lh/(fs*1.17)*240);sp.lineRule=D().LineRuleType.AUTO}
+ const ind={left:n(cs.marginLeft),right:n(cs.marginRight)};if(ti>0)ind.firstLine=n(ti);else if(ti<0)ind.hanging=n(-ti);return{spacing:sp,indent:ind}}
 function para(c,o={}){const cs=getComputedStyle(c),t=c.tagName,A=D().AlignmentType;
- return new (D().Paragraph)({children:runs(c),alignment:{center:A.CENTER,right:A.RIGHT,justify:A.JUSTIFIED}[cs.textAlign]||A.LEFT,heading:/^H[1-3]$/.test(t)?D().HeadingLevel['HEADING_'+t[1]]:undefined,spacing:{after:120},indent:{left:Math.round((parseFloat(cs.marginLeft)||0)*15)},...o})}
+ return new (D().Paragraph)({children:runs(c),alignment:{center:A.CENTER,right:A.RIGHT,justify:A.JUSTIFIED}[cs.textAlign]||A.LEFT,heading:/^H[1-3]$/.test(t)?D().HeadingLevel['HEADING_'+t[1]]:undefined,...pfmt(cs),...o})}
 let numCfg=[];
 function list(l,lv,ref){const out=[];for(const li of l.children){if(li.tagName!='LI')continue;
  out.push(para(li,ref?{numbering:{reference:ref,level:lv}}:{bullet:{level:lv}}));
@@ -557,7 +589,7 @@ function cell(td){const cs=getComputedStyle(td),b={};
 function table(t){const rows=[...t.rows],cw=[];[...rows[0].cells].forEach(c=>{for(let i=0;i<c.colSpan;i++)cw.push(Math.round(c.offsetWidth*15/c.colSpan))});
  return new (D().Table)({width:{size:cw.reduce((a,b)=>a+b,0),type:D().WidthType.DXA},columnWidths:cw,borders:D().TableBorders.NONE,
   rows:rows.map(r=>new (D().TableRow)({height:{value:Math.round(r.offsetHeight*15),rule:D().HeightRule.ATLEAST},children:[...r.cells].map(cell)}))})}
-function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];
+function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];if(c.classList&&c.classList.contains('pb'))return[new (D().Paragraph)({children:[new (D().PageBreak)()]})];
  const t=c.tagName;if(t=='UL')return list(c,0);if(t=='OL'){const r='ol'+numCfg.length;numCfg.push({reference:r,levels:[0,1,2,3].map(l=>({level:l,format:'decimal',text:'%'+(l+1)+'.',alignment:'left',style:{paragraph:{indent:{left:720*(l+1),hanging:360}}}}))});return list(c,0,r)}
  if(t=='TABLE')return[table(c),new (D().Paragraph)('')];return[para(c)]}
 async function expDocx(sa){
@@ -566,7 +598,7 @@ async function expDocx(sa){
   const NF={dec:d.NumberFormat.DECIMAL,ru:d.NumberFormat.UPPER_ROMAN,rl:d.NumberFormat.LOWER_ROMAN,none:d.NumberFormat.DECIMAL},AL={left:d.AlignmentType.LEFT,center:d.AlignmentType.CENTER,right:d.AlignmentType.RIGHT};
   const doc=new d.Document({numbering:{config:numCfg.length?numCfg:[{reference:'x',levels:[{level:0,format:'decimal',text:'%1.',alignment:'left'}]}]},styles:{default:{document:{run:{font:'Calibri',size:22}}}},
    sections:secs.map((ch,i)=>{const c=getCfg(i),pn={formatType:NF[c.fmt]};if(c.start!==''&&c.start!=null)pn.start=parseInt(c.start)||0;
-    return{properties:{type:d.SectionType.NEXT_PAGE,page:{size:{width:11906,height:16838,orientation:land?d.PageOrientation.LANDSCAPE:d.PageOrientation.PORTRAIT},margin:{top:Math.round(mg.t*15),bottom:Math.round(mg.b*15),left:Math.round(mg.l*15),right:Math.round(mg.r*15)},pageNumbers:pn}},
+    return{properties:{type:d.SectionType.NEXT_PAGE,page:{size:{width:Math.round(psz[0]*15),height:Math.round(psz[1]*15),orientation:land?d.PageOrientation.LANDSCAPE:d.PageOrientation.PORTRAIT},margin:{top:Math.round(mg.t*15),bottom:Math.round(mg.b*15),left:Math.round(mg.l*15),right:Math.round(mg.r*15)},pageNumbers:pn}},
      footers:{default:new d.Footer({children:[new d.Paragraph({alignment:AL[c.align],children:c.fmt=='none'?[]:[new d.TextRun({children:[d.PageNumber.CURRENT]})]})]})},
      children:ch.length?ch:[new d.Paragraph('')]}})});
   await save(await d.Packer.toBlob(doc),fname('.docx'),sa);
