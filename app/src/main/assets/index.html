@@ -299,9 +299,9 @@ async function expPdf(sa){
  const zz=$('#zoomer');const old=zz.style.zoom;
  try{toast('Building PDF…');getSelection().removeAllRanges();zz.style.zoom=1;paper.classList.add('exporting');await new Promise(r=>setTimeout(r,80));
   const [W,H]=dim(),pages=+paper.dataset.pages,wr=$('#wrap');wr.scrollTop=0;wr.scrollLeft=0;await new Promise(r=>setTimeout(r,60));
-  const R=paper.getBoundingClientRect(),pdf=new jspdf.jsPDF({unit:'px',format:[W,H],orientation:W>H?'l':'p',hotfixes:['px_scaling']});
+  const pdf=new jspdf.jsPDF({unit:'px',format:[W,H],orientation:W>H?'l':'p',hotfixes:['px_scaling']});
   for(let p=0;p<pages;p++){toast('Building PDF… page '+(p+1)+' of '+pages);
-   const cv=await html2canvas(paper,{scale:1.5,backgroundColor:'#fff',useCORS:true,x:R.left+scrollX,y:R.top+scrollY+p*H,width:W,height:H,scrollX:0,scrollY:0});
+   const cv=await html2canvas(paper,{scale:1.5,backgroundColor:'#fff',useCORS:true,x:0,y:p*H,width:W,height:H});
    if(p)pdf.addPage([W,H],W>H?'l':'p');pdf.addImage(cv.toDataURL('image/jpeg',.92),'JPEG',0,0,W,H)}
   await save(pdf.output('blob'),fname('.pdf'),sa);
  }catch(e){console.error(e);toast('PDF export failed: '+(e&&e.message||e))}finally{paper.classList.remove('exporting');zz.style.zoom=old}}
