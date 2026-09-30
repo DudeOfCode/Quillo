@@ -242,9 +242,13 @@ addEventListener('mouseup',()=>{if(drag){drag=null;sync()}anchor=null;updOv()});
 /* ---------- files ---------- */
 const hex=s=>{const m=(s||'').match(/[\d.]+/g);if(!m||(m[3]!==undefined&&+m[3]===0))return;return m.slice(0,3).map(x=>(+x|0).toString(16).padStart(2,'0')).join('')};
 const D=()=>window.docx;
-async function save(data,name){let d=null;try{d=await window.claude?.use('downloads')}catch(e){}
+async function save(data,name,sa){
+ if(window.AndroidSaver){try{const b64=await new Promise((ok,no)=>{const f=new FileReader();f.onload=()=>ok(String(f.result).split(',')[1]);f.onerror=no;f.readAsDataURL(data)});
+  const mt=data.type||(name.endsWith('.pdf')?'application/pdf':'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  sa?AndroidSaver.saveAs(b64,name,mt):AndroidSaver.saveBase64(b64,name,mt)}catch(e){toast('Save failed: '+e.message)}return}
+ let d=null;try{d=await window.claude?.use('downloads')}catch(e){}
  if(d){try{await d.save({filename:name,data});return}catch(e){toast('Save was cancelled');return}}
- const a=document.createElement('a');a.href=URL.createObjectURL(data);a.download=name;a.click()}
+ const a=document.createElement('a');a.href=URL.createObjectURL(data);a.download=name;document.body.appendChild(a);a.click();a.remove()}
 const fname=ext=>($('#title').value.trim()||'document')+ext;
 $('#fOpen').onchange=async e=>{const f=e.target.files[0];if(!f)return;
  try{const r=await mammoth.convertToHtml({arrayBuffer:await f.arrayBuffer()});ed.innerHTML=r.value||'<p><br></p>';cfg0={fmt:'dec',start:'1',align:'center'};$('#title').value=f.name.replace(/\.docx$/i,'');
@@ -279,7 +283,7 @@ function table(t){const rows=[...t.rows],cw=[];[...rows[0].cells].forEach(c=>{fo
 function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];
  const t=c.tagName;if(t=='UL')return list(c,0);if(t=='OL'){const r='ol'+numCfg.length;numCfg.push({reference:r,levels:[0,1,2,3].map(l=>({level:l,format:'decimal',text:'%'+(l+1)+'.',alignment:'left',style:{paragraph:{indent:{left:720*(l+1),hanging:360}}}}))});return list(c,0,r)}
  if(t=='TABLE')return[table(c),new (D().Paragraph)('')];return[para(c)]}
-async function expDocx(){
+async function expDocx(sa){
  try{numCfg=[];const d=D(),secs=[];let cur=[];
   for(const c of ed.children){if(c.classList.contains('sb')){secs.push(cur);cur=[]}else cur.push(...conv(c))}secs.push(cur);
   const NF={dec:d.NumberFormat.DECIMAL,ru:d.NumberFormat.UPPER_ROMAN,rl:d.NumberFormat.LOWER_ROMAN,none:d.NumberFormat.DECIMAL},AL={left:d.AlignmentType.LEFT,center:d.AlignmentType.CENTER,right:d.AlignmentType.RIGHT};
@@ -288,19 +292,20 @@ async function expDocx(){
     return{properties:{type:d.SectionType.NEXT_PAGE,page:{size:{width:11906,height:16838,orientation:land?d.PageOrientation.LANDSCAPE:d.PageOrientation.PORTRAIT},margin:{top:1440,bottom:1440,left:1440,right:1440},pageNumbers:pn}},
      footers:{default:new d.Footer({children:[new d.Paragraph({alignment:AL[c.align],children:c.fmt=='none'?[]:[new d.TextRun({children:[d.PageNumber.CURRENT]})]})]})},
      children:ch.length?ch:[new d.Paragraph('')]}})});
-  await save(await d.Packer.toBlob(doc),fname('.docx'));
+  await save(await d.Packer.toBlob(doc),fname('.docx'),sa);
  }catch(e){console.error(e);toast('DOCX export failed: '+e.message)}}
-$('#bDocx').onclick=expDocx;
-async function expPdf(){
+$('#bDocx').onclick=()=>expDocx(false);
+async function expPdf(sa){
  const zz=$('#zoomer');const old=zz.style.zoom;
  try{toast('Building PDF…');getSelection().removeAllRanges();zz.style.zoom=1;paper.classList.add('exporting');await new Promise(r=>setTimeout(r,80));
-  const [W,H]=dim(),pages=+paper.dataset.pages,cv=await html2canvas(paper,{scale:1.5,backgroundColor:'#fff',useCORS:true}),s=cv.width/W;
-  const pdf=new jspdf.jsPDF({unit:'px',format:[W,H],orientation:W>H?'l':'p',hotfixes:['px_scaling']});
-  for(let p=0;p<pages;p++){const c2=document.createElement('canvas');c2.width=cv.width;c2.height=Math.round(H*s);c2.getContext('2d').drawImage(cv,0,Math.round(p*H*s),cv.width,c2.height,0,0,cv.width,c2.height);
-   if(p)pdf.addPage([W,H],W>H?'l':'p');pdf.addImage(c2.toDataURL('image/jpeg',.92),'JPEG',0,0,W,H)}
-  await save(pdf.output('blob'),fname('.pdf'));
- }catch(e){console.error(e);toast('PDF export failed')}finally{paper.classList.remove('exporting');zz.style.zoom=old}}
-$('#bPdf').onclick=expPdf;
+  const [W,H]=dim(),pages=+paper.dataset.pages,wr=$('#wrap');wr.scrollTop=0;wr.scrollLeft=0;await new Promise(r=>setTimeout(r,60));
+  const R=paper.getBoundingClientRect(),pdf=new jspdf.jsPDF({unit:'px',format:[W,H],orientation:W>H?'l':'p',hotfixes:['px_scaling']});
+  for(let p=0;p<pages;p++){toast('Building PDF… page '+(p+1)+' of '+pages);
+   const cv=await html2canvas(paper,{scale:1.5,backgroundColor:'#fff',useCORS:true,x:R.left+scrollX,y:R.top+scrollY+p*H,width:W,height:H,scrollX:0,scrollY:0});
+   if(p)pdf.addPage([W,H],W>H?'l':'p');pdf.addImage(cv.toDataURL('image/jpeg',.92),'JPEG',0,0,W,H)}
+  await save(pdf.output('blob'),fname('.pdf'),sa);
+ }catch(e){console.error(e);toast('PDF export failed: '+(e&&e.message||e))}finally{paper.classList.remove('exporting');zz.style.zoom=old}}
+$('#bPdf').onclick=()=>expPdf(false);
 /* ---------- zoom, autosave, init ---------- */
 function setZ(v){z=v;$('#zoomer').style.zoom=v}
 $('#zm').onchange=e=>setZ(+e.target.value);
@@ -331,5 +336,15 @@ if(innerWidth<700)$('#ribbon').classList.add('collapsed');
 </script>
 <script>
 (function(){try{var r=document.documentElement,k='quillo-theme',s=localStorage.getItem(k);if(s)r.dataset.theme=s;var b=document.getElementById('bTheme');if(b)b.onclick=function(){var cur=r.dataset.theme;var sysDark=matchMedia('(prefers-color-scheme:dark)').matches;var next=(cur==='dark'||(!cur&&sysDark))?'light':'dark';r.dataset.theme=next;localStorage.setItem(k,next)};}catch(e){}})();
+
+(function(){const st=document.createElement('style');st.textContent='#fmenu{position:fixed;right:8px;top:58px;z-index:50;background:var(--bar);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px #0006;padding:6px;min-width:240px;max-width:92vw;display:none}#fmenu.on{display:block}#fmenu button{display:flex;width:100%;height:42px;justify-content:flex-start;padding:0 10px}#fmenu small{display:block;padding:4px 10px;color:var(--muted);word-break:break-all}';document.head.appendChild(st);
+ const b=document.createElement('button');b.id='bMenu';b.title='Save as / save folder';b.textContent='Save as ▾';$('#bDocx').before(b);
+ const m=document.createElement('div');m.id='fmenu';m.innerHTML='<button data-a="docx">Save as Word (.docx)…</button><button data-a="pdf">Save as PDF…</button><small>Default save folder:</small><small id="fpath" style="color:var(--ink);font-weight:700"></small><button data-a="ch">Change save folder…</button><button data-a="rs">Use default (Downloads/Quillo)</button>';document.body.appendChild(m);
+ const fp=()=>{$('#fpath').textContent=window.AndroidSaver?AndroidSaver.getFolder():'Browser downloads'};window.onFolder=l=>{$('#fpath').textContent=l};
+ b.onclick=e=>{e.stopPropagation();fp();m.classList.toggle('on')};
+ document.addEventListener('click',e=>{if(!m.contains(e.target))m.classList.remove('on')});
+ m.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(!a)return;
+  if(a=='docx'){m.classList.remove('on');expDocx(true)}else if(a=='pdf'){m.classList.remove('on');expPdf(true)}
+  else if(!window.AndroidSaver)toast('Folder choice is available in the Android app');else if(a=='ch')AndroidSaver.chooseFolder();else AndroidSaver.resetFolder()}})();
 </script>
 </body></html>
