@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
+import android.provider.DocumentsContract
+import org.json.JSONObject
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -120,6 +122,26 @@ class MainActivity : AppCompatActivity() {
     }.toTypedArray()
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQ_SAVEAS) {
+            val b = asBytes; asBytes = null; val u = data?.data
+            if (resultCode == Activity.RESULT_OK && u != null && b != null) {
+                try { contentResolver.openOutputStream(u, "wt")?.use { it.write(b) }; toast("Saved") }
+                catch (e: Exception) { toast("Save failed: ${e.message}") }
+            } else toast("Save cancelled")
+            return
+        }
+        if (requestCode == REQ_TREE) {
+            val u = data?.data
+            if (resultCode == Activity.RESULT_OK && u != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(u,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                } catch (e: Exception) { }
+                prefs.edit().putString("tree", u.toString()).apply()
+                notifyFolder(); toast("Save folder: " + folderLabel())
+            }
+            return
+        }
         if (requestCode == REQ_FILE) {
             val cb = fileCallback
             fileCallback = null
@@ -135,6 +157,40 @@ class MainActivity : AppCompatActivity() {
     /** Bridge the web app calls to hand a generated file (docx / pdf) back to Android. */
     inner class SaverBridge {
         @JavascriptInterface
+        fun saveAs(base64: String, filename: String, mime: String) {
+            val bytes = try { Base64.decode(base64, Base64.DEFAULT) } catch (e: Exception) {
+                runOnUiThread { toast("Could not read the file") }; return }
+            val name = sanitize(filename)
+            val mt = if (mime.isNotBlank()) mime else mimeForExt(name.substringAfterLast('.', ""))
+            runOnUiThread {
+                asBytes = bytes
+                val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = mt
+                    putExtra(Intent.EXTRA_TITLE, name)
+                    treeUri()?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it) }
+                }
+                try { startActivityForResult(i, REQ_SAVEAS) } catch (e: Exception) { asBytes = null; toast("No file picker available") }
+            }
+        }
+
+        @JavascriptInterface
+        fun chooseFolder() = runOnUiThread {
+            val i = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            try { startActivityForResult(i, REQ_TREE) } catch (e: Exception) { toast("No folder picker available") }
+        }
+
+        @JavascriptInterface
+        fun resetFolder() = runOnUiThread {
+            prefs.edit().remove("tree").apply(); notifyFolder(); toast("Using Downloads/Quillo")
+        }
+
+        @JavascriptInterface
+        fun getFolder(): String = folderLabel()
+
+        @JavascriptInterface
         fun saveBase64(base64: String, filename: String, mime: String) {
             val bytes = try {
                 Base64.decode(base64, Base64.DEFAULT)
@@ -144,8 +200,40 @@ class MainActivity : AppCompatActivity() {
             }
             val name = sanitize(filename)
             val type = if (mime.isNotBlank()) mime else mimeForExt(name.substringAfterLast('.', ""))
-            runOnUiThread { saveToDownloads(bytes, name, type) }
+            runOnUiThread { saveDefault(bytes, name, type) }
         }
+    }
+
+    private var asBytes: ByteArray? = null
+    private val prefs by lazy { getSharedPreferences("quillo", MODE_PRIVATE) }
+    private fun treeUri(): Uri? = prefs.getString("tree", null)?.let { Uri.parse(it) }
+
+    private fun folderLabel(): String {
+        val t = treeUri() ?: return "Downloads/Quillo"
+        return try {
+            DocumentsContract.getTreeDocumentId(t).replaceFirst("primary:", "Internal storage/").replace(":", "/")
+        } catch (e: Exception) { "Custom folder" }
+    }
+
+    private fun notifyFolder() {
+        web.evaluateJavascript("window.onFolder&&window.onFolder(" + JSONObject.quote(folderLabel()) + ")", null)
+    }
+
+    private fun saveDefault(bytes: ByteArray, name: String, mime: String) {
+        val t = treeUri()
+        if (t != null) {
+            try {
+                val parent = DocumentsContract.buildDocumentUriUsingTree(t, DocumentsContract.getTreeDocumentId(t))
+                val doc = DocumentsContract.createDocument(contentResolver, parent, mime, name)
+                if (doc != null) {
+                    contentResolver.openOutputStream(doc)?.use { it.write(bytes) }
+                    toast("Saved to ${folderLabel()}/$name")
+                    return
+                }
+            } catch (e: Exception) { /* fall through to Downloads */ }
+            toast("Chosen folder unavailable – saving to Downloads/Quillo")
+        }
+        saveToDownloads(bytes, name, mime)
     }
 
     private fun saveToDownloads(bytes: ByteArray, name: String, mime: String) {
@@ -228,6 +316,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val REQ_FILE = 1001
         private const val REQ_PERM = 1002
+        private const val REQ_SAVEAS = 1003
+        private const val REQ_TREE = 1004
 
         // Intercepts the editor's blob-based download links (Save .docx / Export PDF)
         // and routes the bytes to Android so they land in the Downloads folder.
