@@ -45,13 +45,13 @@ button:disabled{opacity:.4;cursor:default}
 #wrap{flex:1;overflow:auto;padding:14px 8px;touch-action:pan-x pan-y}#zoomer{width:max-content;margin:0 auto}
 #paper{position:relative;background:#fff;color:#000;box-shadow:0 2px 14px #0004}
 #ed{box-sizing:border-box;width:100%;padding:96px;outline:none;font:15px/1.4 Calibri,Carlito,Arial,sans-serif}
-#ed p,#ed div{margin:0;padding-bottom:8px}#ed h1,#ed h2,#ed h3,#ed ul,#ed ol{margin:0;padding-bottom:8px}#ed ul,#ed ol{padding-left:30px}
+#ed p,#ed div{margin:0;padding-bottom:10px;orphans:3;widows:3}#ed h1,#ed h2,#ed h3{page-break-after:avoid;break-after:avoid-page}#ed h1,#ed h2,#ed h3,#ed ul,#ed ol{margin:0;padding-bottom:8px}#ed ul,#ed ol{padding-left:30px}
 #ed h1{font-size:28px}#ed h2{font-size:22px}#ed h3{font-size:18px}#ed img{max-width:100%}
 #ed table{border-collapse:collapse;margin:0}#ed table+p,#ed table+div{padding-top:8px}
 #ed td,#ed th{border:1px solid #000;padding:4px 6px;vertical-align:top;min-width:20px}
 #ed .sel{outline:2px solid #2f6fed;outline-offset:-2px;background-image:linear-gradient(#2f6fed38,#2f6fed38)}
 .sb{display:flex;justify-content:space-between;border-top:2px dashed #2f6fed;color:#2f6fed;font:11px sans-serif;padding:2px 0!important;user-select:none}.sb .x{cursor:pointer;font-style:normal}
-.pl{position:absolute;left:0;right:0;height:12px;background:var(--bg);pointer-events:none}.pf{position:absolute;left:96px;right:96px;font:13px Calibri,Arial,sans-serif;pointer-events:none;color:#000}
+.pl{position:absolute;left:-8px;right:-8px;height:20px;background:var(--bg);pointer-events:none;box-shadow:inset 0 6px 8px -6px rgba(0,0,0,.18),inset 0 -6px 8px -6px rgba(0,0,0,.12)}.pgbrk{display:block;pointer-events:none;user-select:none;width:100%}.pf{position:absolute;left:96px;right:96px;font:13px Calibri,Arial,sans-serif;pointer-events:none;color:#000}
 .exporting .pl,.exporting .sb{visibility:hidden}.exporting .sel{outline:0;background-image:none}
 #tov{position:absolute;left:0;top:0;width:0;height:0}
 .th{position:absolute;box-sizing:border-box;background:#f4f6fa;color:#222;border:1px solid #888;border-radius:4px;text-align:center;font:12px sans-serif;cursor:pointer;user-select:none;overflow:hidden}
@@ -124,29 +124,163 @@ const sbs=()=>[...ed.querySelectorAll(':scope>.sb')];
 const getCfg=i=>i==0?cfg0:sbs()[i-1].dataset;
 /* ---------- layout / pagination ---------- */
 let raf;const sync=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(layout)};
+function canSplit(b){
+  if(!/^(P|DIV|BLOCKQUOTE)$/.test(b.tagName)) return false;
+  if(b.classList.contains('sb')) return false;
+  if(b.querySelector('img,table,ul,ol,h1,h2,h3,h4,h5,h6')) return false;
+  return (b.textContent || '').replace(/\s+/g,' ').trim().length > 120;
+}
+function splitBlock(b,p){
+  const H = dim()[1];
+  const lh = parseFloat(getComputedStyle(b).lineHeight) || 21;
+  let first = true, did = false;
+  for(let g = 0; g < 60; g++){
+    const PR = paper.getBoundingClientRect();
+    const tn = [];
+    const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+    const lim = (p + 1) * H - mg.b;
+    let n, tot = 0;
+    while(n = w.nextNode()){
+      if(n.length && !n.parentElement.closest('.pgbrk')){
+        tn.push([n, tot]);
+        tot += n.length;
+      }
+    }
+    if(!tot) return did;
+    const rc = i => {
+      for(let j = i; j < Math.min(i + 8, tot); j++){
+        let k = tn.length - 1;
+        while(tn[k][1] > j) k--;
+        const rg = document.createRange();
+        rg.setStart(tn[k][0], j - tn[k][1]);
+        rg.setEnd(tn[k][0], j - tn[k][1] + 1);
+        const r = rg.getClientRects()[0];
+        if(r && r.height) return { y: r.top - PR.top, h: r.height };
+      }
+      return null;
+    };
+    const ov = i => { const r = rc(i); return r ? r.y + r.h > lim : false; };
+    if(!ov(tot - 1)) return did;
+    let lo = 0, hi = tot - 1;
+    while(lo < hi){
+      const m = (lo + hi) >> 1;
+      ov(m) ? hi = m : lo = m + 1;
+    }
+    let breakAt = lo;
+    const fullText = tn.map(t => t[0].textContent).join('');
+    while(breakAt > 0){
+      const ch = fullText[breakAt - 1];
+      if(/\s|[–—,:]/.test(ch)) break;
+      breakAt--;
+    }
+    const r0 = rc(Math.max(0, breakAt));
+    if(!r0) return did;
+    const top = r0.y;
+    if(first){
+      const f = rc(0);
+      if(f && top - f.y < lh * 2.2) return false;
+      first = false;
+    }
+    if(breakAt < 8) return did;
+    let k = tn.length - 1;
+    while(tn[k][1] > breakAt) k--;
+    const nd = tn[k][0];
+    const o = breakAt - tn[k][1];
+    const sp = document.createElement('span');
+    sp.className = 'pgbrk';
+    sp.contentEditable = 'false';
+    sp.style.height = Math.max(0, (p + 1) * H + mg.t - top) + 'px';
+    if(o > 0) nd.splitText(o).before(sp);
+    else nd.before(sp);
+    did = true;
+    p++;
+  }
+  return did;
+}
 function layout(){
- const [W,H]=dim(),us=H-mg.t-mg.b;paper.style.width=W+'px';ed.style.padding=`${mg.t}px ${mg.r}px ${mg.b}px ${mg.l}px`;ed.style.minHeight='';
- const kids=[...ed.children];kids.forEach(b=>b.style.marginTop='');
- let force=false,fp=0;sbP=[];
- for(const b of kids){
-  const t=b.offsetTop,h=b.offsetHeight,p=Math.floor(t/H),st=p*H+mg.t,en=(p+1)*H-mg.b;let sh=0;
-  if(force){sh=(fp+1)*H+mg.t-t;force=false}
-  else if(t<st)sh=st-t;
-  else if(h<=us&&t>st&&t+h>en)sh=(p+1)*H+mg.t-t;
-  if(sh>0)b.style.marginTop=sh+'px';
-  if(b.classList.contains('sb')){fp=Math.floor(b.offsetTop/H);sbP.push(fp);force=true}
- }
- const l=ed.lastElementChild,bt=l?l.offsetTop+l.offsetHeight+mg.b:H,pages=Math.max(1,Math.ceil(bt/H));
- ed.style.minHeight=pages*H+'px';
- paper.querySelectorAll('.pf,.pl').forEach(e=>e.remove());
- let n=0,prev=-1;
- for(let p=0;p<pages;p++){
-  const s=sbP.filter(x=>x<p).length,c=getCfg(s);
-  if(s!==prev){n=(c.start!==''&&c.start!=null)?parseInt(c.start)||0:(s==0?1:n+1);prev=s}else n++;
-  const f=document.createElement('div');f.className='pf';f.style.top=((p+1)*H-Math.min(mg.b/2,48)-8)+'px';f.style.left=mg.l+'px';f.style.right=mg.r+'px';f.style.textAlign=c.align;f.textContent=fmtN(n,c.fmt);paper.appendChild(f);
-  if(p<pages-1){const d=document.createElement('div');d.className='pl';d.style.top=((p+1)*H-6)+'px';paper.appendChild(d)}
- }
- paper.dataset.pages=pages;status();persist();
+  const zz = $('#zoomer'), oz = zz.style.zoom;
+  zz.style.zoom = 1;
+  ed.querySelectorAll('.pgbrk').forEach(x => x.remove());
+  ed.normalize();
+  const [W, H] = dim();
+  const us = H - mg.t - mg.b;
+  paper.style.width = W + 'px';
+  ed.style.padding = `${mg.t}px ${mg.r}px ${mg.b}px ${mg.l}px`;
+  ed.style.minHeight = '';
+  const kids = [...ed.children];
+  kids.forEach(b => { b.style.marginTop = ''; });
+  let force = false, fp = 0;
+  sbP = [];
+  for(const b of kids){
+    let t = b.offsetTop, h = b.offsetHeight;
+    let p = Math.floor(t / H);
+    let st = p * H + mg.t;
+    let en = (p + 1) * H - mg.b;
+    let nx = (p + 1) * H + mg.t;
+    let sh = 0;
+    if(force){
+      sh = (fp + 1) * H + mg.t - t;
+      force = false;
+    } else if(t < st){
+      sh = st - t;
+    } else if(/^H[1-6]$/.test(b.tagName) && t > st && t + h + 48 > en){
+      sh = nx - t;
+    } else if(t + h > en && h <= us * 0.9 && t > st + 8){
+      sh = nx - t;
+    }
+    if(sh > 0){
+      b.style.marginTop = sh + 'px';
+      t = b.offsetTop; h = b.offsetHeight;
+      p = Math.floor(t / H);
+      st = p * H + mg.t; en = (p + 1) * H - mg.b; nx = (p + 1) * H + mg.t;
+    }
+    if(t + h > en && !b.classList.contains('sb')){
+      if(canSplit(b)){
+        if(!splitBlock(b, p) && t > st){
+          b.style.marginTop = (nx - t + sh) + 'px';
+        }
+      } else if(h <= us && t > st){
+        b.style.marginTop = (nx - t + sh) + 'px';
+      }
+    }
+    if(b.classList.contains('sb')){
+      fp = Math.floor(b.offsetTop / H);
+      sbP.push(fp);
+      force = true;
+    }
+  }
+  const l = ed.lastElementChild;
+  const bt = l ? l.offsetTop + l.offsetHeight + mg.b : H;
+  const pages = Math.max(1, Math.ceil(bt / H));
+  ed.style.minHeight = pages * H + 'px';
+  paper.querySelectorAll('.pf,.pl').forEach(e => e.remove());
+  let n = 0, prev = -1;
+  for(let p = 0; p < pages; p++){
+    const s = sbP.filter(x => x < p).length;
+    const c = getCfg(s);
+    if(s !== prev){
+      n = (c.start !== '' && c.start != null) ? (parseInt(c.start) || 0) : (s == 0 ? 1 : n + 1);
+      prev = s;
+    } else n++;
+    const f = document.createElement('div');
+    f.className = 'pf';
+    f.style.top = ((p + 1) * H - Math.min(mg.b / 2, 48) - 8) + 'px';
+    f.style.left = mg.l + 'px';
+    f.style.right = mg.r + 'px';
+    f.style.textAlign = c.align;
+    f.textContent = fmtN(n, c.fmt);
+    paper.appendChild(f);
+    if(p < pages - 1){
+      const d = document.createElement('div');
+      d.className = 'pl';
+      d.style.top = ((p + 1) * H - 10) + 'px';
+      paper.appendChild(d);
+    }
+  }
+  zz.style.zoom = oz;
+  paper.dataset.pages = pages;
+  status();
+  persist();
 }
 function curBlock(){const s=getSelection();let n=s.anchorNode;if(!n||!ed.contains(n))return null;while(n.parentNode!==ed)n=n.parentNode;return n}
 function secIdx(){let n=saved&&saved.startContainer;if(!n||n===ed||!ed.contains(n))return 0;while(n.parentNode!==ed)n=n.parentNode;return sbs().filter(x=>x.compareDocumentPosition(n)&4).length}
@@ -313,7 +447,7 @@ function setZ(v){z=v;$('#zoomer').style.zoom=v}
 $('#zm').onchange=e=>setZ(+e.target.value);
 function fit(){const v=Math.min(1,(innerWidth-16)/dim()[0]);setZ(v);const o=$('#zm');if(![...o.options].some(x=>+x.value==+v.toFixed(2))){const op=new Option('Fit',v);op.selected=true;o.add(op,0)}o.value=v}
 let hist=[],hi=-1,hlock=false,ht;
-const snap=()=>{const c=ed.cloneNode(true);c.querySelectorAll('*').forEach(x=>{if(x.style)x.style.marginTop='';x.classList&&x.classList.remove('sel')});return c.innerHTML};
+const snap=()=>{const c=ed.cloneNode(true);c.querySelectorAll('.pgbrk').forEach(x=>x.remove());c.querySelectorAll('*').forEach(x=>{if(x.style)x.style.marginTop='';x.classList&&x.classList.remove('sel')});return c.innerHTML};
 function hbtn(){$('#bUn').disabled=hi<1;$('#bRe').disabled=hi>=hist.length-1}
 function push(){if(hlock)return;const s=snap();if(hist[hi]===s)return;hist=hist.slice(0,hi+1);hist.push(s);if(hist.length>100)hist.shift();hi=hist.length-1;hbtn()}
 function pushSoon(){clearTimeout(ht);ht=setTimeout(push,400)}
@@ -321,7 +455,7 @@ function go(d){clearTimeout(ht);push();const n=hi+d;if(n<0||n>=hist.length)retur
 $('#bUn').onclick=()=>go(-1);$('#bRe').onclick=()=>go(1);
 addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||/INPUT|SELECT/.test(e.target.tagName))return;const k=e.key.toLowerCase();
  if(k=='z'){e.preventDefault();go(e.shiftKey?1:-1)}else if(k=='y'){e.preventDefault();go(1)}});
-let ph;function persist(){pushSoon();clearTimeout(ph);ph=setTimeout(()=>{try{const c=ed.cloneNode(true);c.querySelectorAll('*').forEach(x=>x.style&&(x.style.marginTop=''));localStorage.setItem('writer-draft',JSON.stringify({h:c.innerHTML,land,cfg0,mg,t:$('#title').value}))}catch(e){}},600)}
+let ph;function persist(){pushSoon();clearTimeout(ph);ph=setTimeout(()=>{try{const c=ed.cloneNode(true);c.querySelectorAll('.pgbrk').forEach(x=>x.remove());c.querySelectorAll('*').forEach(x=>x.style&&(x.style.marginTop=''));localStorage.setItem('writer-draft',JSON.stringify({h:c.innerHTML,land,cfg0,mg,t:$('#title').value}))}catch(e){}},600)}
 try{const d=JSON.parse(localStorage.getItem('writer-draft')||'null');if(d){ed.innerHTML=d.h;land=d.land;cfg0=d.cfg0;if(d.mg)Object.assign(mg,d.mg);$('#title').value=d.t;$('#ori').value=land?'l':'p'}}catch(e){}
 if(!ed.innerHTML.trim())ed.innerHTML='<p>Start typing, or open a .docx file…</p>';
 document.execCommand('styleWithCSS',false,true);document.execCommand('defaultParagraphSeparator',false,'p');
@@ -355,5 +489,7 @@ if(innerWidth<700)$('#ribbon').classList.add('collapsed');
  ids.forEach(i=>$('#'+i).oninput=()=>{const a=ids.map(j=>+$('#'+j).value);apply(a,true);$('#mpre').value=''});
  $('#mpre').onchange=e=>{if(e.target.value)apply(e.target.value.split(','))};
  show();window.showMargins=show})();
+
+(function(){const st=document.createElement('style');st.textContent='.pgbrk{display:block;pointer-events:none;user-select:none}';document.head.appendChild(st)})();
 </script>
 </body></html>
