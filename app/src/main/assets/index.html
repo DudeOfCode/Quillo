@@ -1,8 +1,8 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><title>Writer – Document Editor</title>
-<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="vendor/mammoth.browser.min.js"></script>
+<script src="vendor/docx.umd.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <style>
 :root{--bg:#eef1f6;--bar:#ffffff;--panel:#f6f8fc;--ink:#1f2430;--muted:#6b7280;--line:#dce1ea;--acc:#2f6fed;--hov:#eef3ff;--active:#dfe8ff;--sh:0 1px 2px rgba(20,30,60,.06),0 6px 20px rgba(20,30,60,.06);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1216;--bar:#171b22;--panel:#1c212a;--ink:#e6e8ee;--muted:#94a0b3;--line:#2b323d;--hov:#222b3a;--active:#26344d}}
@@ -36,15 +36,15 @@ button:disabled{opacity:.4;cursor:default}
 #tabs .on{color:var(--acc)}
 #tabs .on::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--acc)}
 /* ribbon */
-#ribbon{background:var(--bar);border-bottom:1px solid var(--line);padding:9px 10px;max-height:38vh;overflow-y:auto}#ribbon.collapsed{display:none}
+#ribbon{background:var(--bar);border-bottom:1px solid var(--line);padding:6px 8px;max-height:28vh;overflow-y:auto;transition:max-height .2s,padding .2s,opacity .15s}#ribbon.collapsed{display:none}#ribbon.compact{max-height:0!important;padding-top:0!important;padding-bottom:0!important;opacity:0;overflow:hidden;border-bottom-width:0}body.kb-open #ribbon:not(.collapsed){max-height:20vh}body.kb-open #wrap{padding:6px 2px}#top{padding:6px 8px}#tabs{padding:4px 8px 0}#st{padding:5px 10px;font-size:11px}
 .grp{flex-wrap:wrap;max-width:100%}.fold{height:36px;min-width:120px;max-width:100%}#p-tbl .grp:first-child{display:none}
 .p{display:none;flex-wrap:wrap;gap:8px;align-items:center}.p.on{display:flex}
 .grp{display:inline-flex;align-items:center;gap:3px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
 .grp .lb{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:0 6px 0 4px}
 .p i{width:1px;height:24px;background:var(--line);margin:0 2px}.p small{opacity:.8;color:var(--muted);padding:0 3px}
-#wrap{flex:1;overflow:auto;padding:14px 8px;touch-action:pan-x pan-y}#zoomer{width:max-content;margin:0 auto}
+#wrap{flex:1;overflow:auto;padding:8px 4px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}#zoomer{width:max-content;margin:0 auto}
 #paper{position:relative;background:#fff;color:#000;box-shadow:0 2px 14px #0004}
-#ed{box-sizing:border-box;width:100%;padding:96px;outline:none;font:15px/1.4 Calibri,Carlito,Arial,sans-serif}
+#ed{box-sizing:border-box;width:100%;padding:96px;outline:none;font:15px/1.5 Calibri,Carlito,Arial,sans-serif}
 #ed p,#ed div{margin:0;padding-bottom:10px;orphans:3;widows:3}#ed h1,#ed h2,#ed h3{page-break-after:avoid;break-after:avoid-page}#ed h1,#ed h2,#ed h3,#ed ul,#ed ol{margin:0;padding-bottom:8px}#ed ul,#ed ol{padding-left:30px}
 #ed h1{font-size:28px}#ed h2{font-size:22px}#ed h3{font-size:18px}#ed img{max-width:100%}
 #ed table{border-collapse:collapse;margin:0}#ed table+p,#ed table+div{padding-top:8px}
@@ -81,6 +81,8 @@ button:disabled{opacity:.4;cursor:default}
 <div class="grp"><span class="lb">Font</span>
 <select id="ff"><option>Calibri</option><option>Arial</option><option>Times New Roman</option><option>Georgia</option><option>Courier New</option><option>Verdana</option></select>
 <select id="fs"><option>10</option><option>11</option><option selected>12</option><option>14</option><option>16</option><option>18</option><option>24</option><option>32</option><option>48</option></select></div>
+<div class="grp"><span class="lb">Spacing</span>
+<select id="lh" title="Line spacing"><option value="1">Single</option><option value="1.15">1.15</option><option value="1.5" selected>1.5</option><option value="2">Double</option><option value="2.5">2.5</option><option value="3">Triple</option></select></div>
 <div class="grp"><span class="lb">Style</span>
 <button data-c="bold" title="Bold"><b>B</b></button><button data-c="italic" title="Italic"><i style="all:unset;font-style:italic">I</i></button><button data-c="underline" title="Underline"><u>U</u></button><button data-c="strikeThrough" title="Strikethrough"><s>S</s></button><button data-c="subscript" title="Subscript">x₂</button><button data-c="superscript" title="Superscript">x²</button>
 <input type="color" id="fc" title="Text colour" value="#000000"><input type="color" id="hc" title="Highlight colour" value="#ffff00"></div>
@@ -123,7 +125,35 @@ const fmtN=(n,f)=>f=='dec'?n:f=='rl'?rom(n).toLowerCase():f=='ru'?rom(n):'';
 const sbs=()=>[...ed.querySelectorAll(':scope>.sb')];
 const getCfg=i=>i==0?cfg0:sbs()[i-1].dataset;
 /* ---------- layout / pagination ---------- */
-let raf;const sync=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(layout)};
+let raf, layoutTimer;
+function caretScrollIntoView(){
+  try{
+    const s=getSelection();
+    if(!s||!s.rangeCount) return;
+    const r=s.getRangeAt(0).cloneRange();
+    let rect=r.getBoundingClientRect();
+    if((!rect||(!rect.height&&!rect.width))&&r.getClientRects().length) rect=r.getClientRects()[0];
+    if(!rect||(!rect.height&&!rect.width)) return;
+    const wr=$('#wrap');
+    const wrR=wr.getBoundingClientRect();
+    const pad=56;
+    if(rect.bottom > wrR.bottom - pad) wr.scrollTop += (rect.bottom - wrR.bottom + pad);
+    else if(rect.top < wrR.top + pad) wr.scrollTop -= (wrR.top + pad - rect.top);
+  }catch(e){}
+}
+const sync=()=>{
+  cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(caretScrollIntoView);
+  clearTimeout(layoutTimer);
+  layoutTimer=setTimeout(()=>{
+    const wr=$('#wrap');
+    const st=wr.scrollTop, sl=wr.scrollLeft;
+    layout();
+    wr.scrollTop=st; wr.scrollLeft=sl;
+    requestAnimationFrame(caretScrollIntoView);
+  }, 300);
+};
+
 function canSplit(b){
   if(!/^(P|DIV|BLOCKQUOTE)$/.test(b.tagName)) return false;
   if(b.classList.contains('sb')) return false;
@@ -307,14 +337,62 @@ $('#ribbon').addEventListener('mousedown',e=>{if(!/INPUT|SELECT|OPTION/.test(e.t
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>ex(b.dataset.c));
 $('#ff').onchange=e=>ex('fontName',e.target.value);$('#blk').onchange=e=>ex('formatBlock',e.target.value);
 $('#fc').oninput=e=>ex('foreColor',e.target.value);$('#hc').oninput=e=>ex('hiliteColor',e.target.value);
-$('#fs').onchange=e=>{restore();document.execCommand('fontSize',false,7);ed.querySelectorAll('[style*="xxx-large"],font[size="7"]').forEach(f=>{const s=document.createElement('span');s.style.fontSize=e.target.value+'px';s.innerHTML=f.innerHTML;f.replaceWith(s)});sync()};
+$('#fs').onchange=e=>{restore();document.execCommand('fontSize',false,7);ed.querySelectorAll('[style*="xxx-large"],font[size="7"]').forEach(f=>{const s=document.createElement('span');s.style.fontSize=e.target.value+'px';s.innerHTML=f.innerHTML;f.replaceWith(s)});sync()}
+$('#lh').onchange=e=>{
+  restore();
+  const v=e.target.value;
+  const s=getSelection();
+  if(s&&s.rangeCount){
+    // Apply to current block(s)
+    let n=s.anchorNode;
+    if(n&&n.nodeType===3) n=n.parentElement;
+    const block=(n&&n.closest)?n.closest('p,div,h1,h2,h3,li,blockquote'):null;
+    if(block&&ed.contains(block)){
+      block.style.lineHeight=v;
+    } else {
+      ed.style.lineHeight=v;
+    }
+  } else {
+    ed.style.lineHeight=v;
+  }
+  // If whole doc selected or no selection, set default on editor
+  try{
+    if(s&&s.toString().length>0){
+      document.execCommand('styleWithCSS', false, true);
+    }
+  }catch(err){}
+  sync();
+};
+;
 $('#iLnk').onclick=()=>{const u=prompt('Link URL','https://');if(u)ex('createLink',u)};
 $('#iImg').onclick=()=>$('#fImg').click();
 $('#fImg').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{ex('insertImage',r.result);setTimeout(layout,60)};r.readAsDataURL(f);e.target.value=''};
 document.addEventListener('selectionchange',()=>{const s=getSelection();if(s.rangeCount&&ed.contains(s.anchorNode)){saved=s.getRangeAt(0).cloneRange();curSec=secIdx();const n=s.anchorNode,c=(n.nodeType==3?n.parentElement:n).closest('td,th');lastCell=c||null;status()}});
 ed.addEventListener('input',sync);
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{const rb=$('#ribbon');if(b.classList.contains('on')){rb.classList.toggle('collapsed');return}rb.classList.remove('collapsed');document.querySelectorAll('#tabs button,.p').forEach(x=>x.classList.remove('on'));b.classList.add('on');$('#p-'+b.dataset.t).classList.add('on')});
-addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key=='s'){e.preventDefault();expDocx()}});
+addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key=='s'){e.preventDefault();expDocx();return}
+  if(e.key==='Enter' && !e.ctrlKey && !e.metaKey && !e.altKey){
+    requestAnimationFrame(()=>requestAnimationFrame(caretScrollIntoView));
+  }
+});
+(function(){
+  const vv=window.visualViewport;
+  const applyKb=()=>{
+    if(!vv) return;
+    const covered=Math.max(0, window.innerHeight - vv.height - (vv.offsetTop||0));
+    const open=covered>120;
+    document.body.classList.toggle('kb-open', open);
+    const rb=$('#ribbon');
+    if(!rb) return;
+    if(open){ if(!rb.classList.contains('collapsed')) rb.classList.add('compact'); }
+    else rb.classList.remove('compact');
+  };
+  if(vv){ vv.addEventListener('resize', applyKb); vv.addEventListener('scroll', applyKb); }
+  ed.addEventListener('focus', ()=>setTimeout(applyKb, 350));
+  ed.addEventListener('blur', ()=>setTimeout(()=>{document.body.classList.remove('kb-open');const rb=$('#ribbon');if(rb)rb.classList.remove('compact')}, 250));
+})();
+
 /* ---------- tables ---------- */
 $('#iTbl').onclick=()=>{const r=+$('#tr').value||3,c=+$('#tc').value||3,w=Math.floor((dim()[0]-mg.l-mg.r)/c);
  let h='<table>';for(let i=0;i<r;i++){h+='<tr>';for(let j=0;j<c;j++)h+=`<td style="width:${w}px"><br></td>`;h+='</tr>'}ex('insertHTML',h+'</table><p><br></p>');setTimeout(layout,30)};
