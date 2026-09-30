@@ -51,7 +51,7 @@ button:disabled{opacity:.4;cursor:default}
 #ed td,#ed th{border:1px solid #000;padding:4px 6px;vertical-align:top;min-width:20px}
 #ed .sel{outline:2px solid #2f6fed;outline-offset:-2px;background-image:linear-gradient(#2f6fed38,#2f6fed38)}
 .sb{display:flex;justify-content:space-between;border-top:2px dashed #2f6fed;color:#2f6fed;font:11px sans-serif;padding:2px 0!important;user-select:none}.sb .x{cursor:pointer;font-style:normal}
-.pl{position:absolute;left:-8px;right:-8px;height:20px;background:var(--bg);pointer-events:none;box-shadow:inset 0 6px 8px -6px rgba(0,0,0,.18),inset 0 -6px 8px -6px rgba(0,0,0,.12)}.pgbrk{display:block;pointer-events:none;user-select:none;width:100%}.pf{position:absolute;left:96px;right:96px;font:13px Calibri,Arial,sans-serif;pointer-events:none;color:#000}
+.pl{position:absolute;left:-8px;right:-8px;height:20px;background:var(--bg);pointer-events:none;box-shadow:inset 0 6px 8px -6px rgba(0,0,0,.18),inset 0 -6px 8px -6px rgba(0,0,0,.12)}.pgbrk{display:block;pointer-events:none;user-select:none;width:100%}.pf{position:absolute;left:96px;right:96px;font:12px Calibri,Arial,sans-serif;pointer-events:none;color:#333;line-height:1.2;background:transparent}
 .exporting .pl,.exporting .sb{visibility:hidden}.exporting .sel{outline:0;background-image:none}
 #tov{position:absolute;left:0;top:0;width:0;height:0}
 .th{position:absolute;box-sizing:border-box;background:#f4f6fa;color:#222;border:1px solid #888;border-radius:4px;text-align:center;font:12px sans-serif;cursor:pointer;user-select:none;overflow:hidden}
@@ -228,11 +228,13 @@ function splitBlock(b,p){
   return did;
 }
 function layout(){
-  const zz = $('#zoomer'), oz = zz.style.zoom;
-  zz.style.zoom = 1;
+  const zz = $('#zoomer'), oz = zz ? zz.style.zoom : 1;
+  if(zz) zz.style.zoom = 1;
   ed.querySelectorAll('.pgbrk').forEach(x => x.remove());
   ed.normalize();
   const [W, H] = dim();
+  // Reserve space for page number footer so text never overlaps it
+  const footerReserve = Math.max(36, Math.min(mg.b * 0.55, 56));
   const us = H - mg.t - mg.b;
   paper.style.width = W + 'px';
   ed.style.padding = `${mg.t}px ${mg.r}px ${mg.b}px ${mg.l}px`;
@@ -242,10 +244,18 @@ function layout(){
   let force = false, fp = 0;
   sbP = [];
   for(const b of kids){
+    if(b.classList.contains('pgbrk')) continue;
     let t = b.offsetTop, h = b.offsetHeight;
     let p = Math.floor(t / H);
     let st = p * H + mg.t;
-    let en = (p + 1) * H - mg.b;
+    // Content must end above footer zone
+    let en = (p + 1) * H - mg.b - footerReserve + mg.b; // usable bottom inside padding box approx
+    // Simpler: page bottom edge minus footerReserve
+    en = (p + 1) * H - footerReserve;
+    // But content is inside padding - offsetTop is relative to ed border box including padding
+    // offsetTop of children is from ed padding edge... actually from offsetParent content
+    // Keep consistent with prior math: en = (p+1)*H - mg.b was original usable
+    en = (p + 1) * H - Math.max(mg.b, footerReserve + 8);
     let nx = (p + 1) * H + mg.t;
     let sh = 0;
     if(force){
@@ -255,17 +265,19 @@ function layout(){
       sh = st - t;
     } else if(/^H[1-6]$/.test(b.tagName) && t > st && t + h + 48 > en){
       sh = nx - t;
-    } else if(t + h > en && h <= us * 0.9 && t > st + 8){
+    } else if(t + h > en && h <= us * 0.85 && t > st + 8){
       sh = nx - t;
     }
     if(sh > 0){
       b.style.marginTop = sh + 'px';
       t = b.offsetTop; h = b.offsetHeight;
       p = Math.floor(t / H);
-      st = p * H + mg.t; en = (p + 1) * H - mg.b; nx = (p + 1) * H + mg.t;
+      st = p * H + mg.t;
+      en = (p + 1) * H - Math.max(mg.b, footerReserve + 8);
+      nx = (p + 1) * H + mg.t;
     }
     if(t + h > en && !b.classList.contains('sb')){
-      if(canSplit(b)){
+      if(typeof canSplit === 'function' && canSplit(b)){
         if(!splitBlock(b, p) && t > st){
           b.style.marginTop = (nx - t + sh) + 'px';
         }
@@ -294,23 +306,27 @@ function layout(){
     } else n++;
     const f = document.createElement('div');
     f.className = 'pf';
-    f.style.top = ((p + 1) * H - Math.min(mg.b / 2, 48) - 8) + 'px';
+    // Place page number inside bottom margin, never over content
+    f.style.top = ((p + 1) * H - Math.min(mg.b, footerReserve) + 4) + 'px';
     f.style.left = mg.l + 'px';
     f.style.right = mg.r + 'px';
-    f.style.textAlign = c.align;
+    f.style.textAlign = c.align || 'center';
+    f.style.pointerEvents = 'none';
+    f.style.zIndex = '2';
     f.textContent = fmtN(n, c.fmt);
     paper.appendChild(f);
     if(p < pages - 1){
       const d = document.createElement('div');
       d.className = 'pl';
       d.style.top = ((p + 1) * H - 10) + 'px';
+      d.style.zIndex = '3';
       paper.appendChild(d);
     }
   }
-  zz.style.zoom = oz;
+  if(zz) zz.style.zoom = oz;
   paper.dataset.pages = pages;
   status();
-  persist();
+  if(typeof persist === 'function') persist();
 }
 function curBlock(){const s=getSelection();let n=s.anchorNode;if(!n||!ed.contains(n))return null;while(n.parentNode!==ed)n=n.parentNode;return n}
 function secIdx(){let n=saved&&saved.startContainer;if(!n||n===ed||!ed.contains(n))return 0;while(n.parentNode!==ed)n=n.parentNode;return sbs().filter(x=>x.compareDocumentPosition(n)&4).length}
@@ -340,28 +356,48 @@ $('#fc').oninput=e=>ex('foreColor',e.target.value);$('#hc').oninput=e=>ex('hilit
 $('#fs').onchange=e=>{restore();document.execCommand('fontSize',false,7);ed.querySelectorAll('[style*="xxx-large"],font[size="7"]').forEach(f=>{const s=document.createElement('span');s.style.fontSize=e.target.value+'px';s.innerHTML=f.innerHTML;f.replaceWith(s)});sync()}
 $('#lh').onchange=e=>{
   restore();
-  const v=e.target.value;
+  const v=String(e.target.value);
   const s=getSelection();
-  if(s&&s.rangeCount){
-    // Apply to current block(s)
-    let n=s.anchorNode;
+  let applied=false;
+  try{
+    if(s&&s.rangeCount&&!s.isCollapsed&&s.toString().length>0){
+      // Apply to all block elements intersecting the selection
+      const range=s.getRangeAt(0);
+      const blocks=new Set();
+      const walker=document.createTreeWalker(ed, NodeFilter.SHOW_ELEMENT);
+      let n;
+      while(n=walker.nextNode()){
+        if(/^(P|DIV|H[1-6]|LI|BLOCKQUOTE|TD|TH)$/.test(n.tagName)){
+          try{
+            if(range.intersectsNode(n)) blocks.add(n);
+          }catch(err){}
+        }
+      }
+      blocks.forEach(b=>{ b.style.lineHeight=v; });
+      applied=blocks.size>0;
+    }
+  }catch(err){}
+  if(!applied){
+    // Apply to current paragraph, or whole document
+    let n=s&&s.anchorNode;
     if(n&&n.nodeType===3) n=n.parentElement;
-    const block=(n&&n.closest)?n.closest('p,div,h1,h2,h3,li,blockquote'):null;
+    const block=n&&n.closest?n.closest('p,div,h1,h2,h3,li,blockquote,td,th'):null;
     if(block&&ed.contains(block)){
       block.style.lineHeight=v;
     } else {
+      ed.querySelectorAll('p,div,h1,h2,h3,li,blockquote').forEach(el=>{
+        if(!el.classList.contains('sb')&&!el.classList.contains('pgbrk')) el.style.lineHeight=v;
+      });
       ed.style.lineHeight=v;
     }
-  } else {
-    ed.style.lineHeight=v;
   }
-  // If whole doc selected or no selection, set default on editor
-  try{
-    if(s&&s.toString().length>0){
-      document.execCommand('styleWithCSS', false, true);
-    }
-  }catch(err){}
-  sync();
+  // Force reflow + pagination
+  clearTimeout(layoutTimer);
+  const wr=$('#wrap'); const st=wr.scrollTop;
+  layout();
+  wr.scrollTop=st;
+  pushSoon();
+  toast('Line spacing: '+v);
 };
 ;
 $('#iLnk').onclick=()=>{const u=prompt('Link URL','https://');if(u)ex('createLink',u)};
@@ -465,8 +501,35 @@ async function save(data,name,sa){
  const a=document.createElement('a');a.href=URL.createObjectURL(data);a.download=name;document.body.appendChild(a);a.click();a.remove()}
 const fname=ext=>($('#title').value.trim()||'document')+ext;
 $('#fOpen').onchange=async e=>{const f=e.target.files[0];if(!f)return;
- try{const r=await mammoth.convertToHtml({arrayBuffer:await f.arrayBuffer()});ed.innerHTML=r.value||'<p><br></p>';cfg0={fmt:'dec',start:'1',align:'center'};$('#title').value=f.name.replace(/\.docx$/i,'');
-  ed.querySelectorAll('table').forEach(t=>t.querySelectorAll('td,th').forEach(c=>{const w=c.offsetWidth;}));layout();toast('Opened '+f.name)}catch(x){toast('Could not open this file')}e.target.value=''};
+ try{
+  const ab=await f.arrayBuffer();
+  const r=await mammoth.convertToHtml({arrayBuffer:ab},{
+    styleMap:[
+      "p[style-name='Title'] => h1:fresh",
+      "p[style-name='Heading 1'] => h1:fresh",
+      "p[style-name='Heading 2'] => h2:fresh",
+      "p[style-name='Heading 3'] => h3:fresh",
+      "r[style-name='Strong'] => strong",
+      "p[style-name='Quote'] => blockquote:fresh"
+    ],
+    includeDefaultStyleMap:true,
+    ignoreEmptyParagraphs:false
+  });
+  // Preserve imported HTML as closely as possible
+  ed.innerHTML=r.value||'<p><br></p>';
+  // Normalize empty paras but keep spacing/alignment inline styles from mammoth
+  ed.querySelectorAll('p,div,h1,h2,h3,li,td,th').forEach(el=>{
+    // Don't strip existing inline styles (text-align, margins, line-height, font)
+    if(!el.style.lineHeight){/* leave default */}
+  });
+  cfg0={fmt:'dec',start:'1',align:'center'};
+  $('#title').value=f.name.replace(/\.docx$/i,'');
+  hist=[];hi=-1;push();
+  // Defer layout so browser computes imported metrics first
+  requestAnimationFrame(()=>{layout();$('#wrap').scrollTop=0;toast('Opened '+f.name)});
+ }catch(x){console.error(x);toast('Could not open this file')}
+ e.target.value=''};
+
 $('#bNew').onclick=()=>{if(confirm('Start a new document? Unsaved changes will be lost.')){ed.innerHTML='<p><br></p>';cfg0={fmt:'dec',start:'1',align:'center'};$('#title').value='Untitled document';layout()}};
 /* docx export */
 function props(el){const cs=getComputedStyle(el);let ul=0,st=0,bg,a=el;
@@ -529,7 +592,43 @@ const snap=()=>{const c=ed.cloneNode(true);c.querySelectorAll('.pgbrk').forEach(
 function hbtn(){$('#bUn').disabled=hi<1;$('#bRe').disabled=hi>=hist.length-1}
 function push(){if(hlock)return;const s=snap();if(hist[hi]===s)return;hist=hist.slice(0,hi+1);hist.push(s);if(hist.length>100)hist.shift();hi=hist.length-1;hbtn()}
 function pushSoon(){clearTimeout(ht);ht=setTimeout(push,400)}
-function go(d){clearTimeout(ht);push();const n=hi+d;if(n<0||n>=hist.length)return;hi=n;hlock=true;ed.innerHTML=hist[hi];lastCell=null;layout();hlock=false;hbtn();ed.focus()}
+function go(d){
+  clearTimeout(ht);
+  // Save current into history only when moving (push already may have run)
+  const n=hi+d;
+  if(n<0||n>=hist.length)return;
+  const wr=$('#wrap');
+  const keepScroll=wr.scrollTop;
+  hi=n;hlock=true;
+  ed.innerHTML=hist[hi];
+  lastCell=null;
+  layout();
+  // Restore scroll — do NOT jump to top
+  wr.scrollTop=keepScroll;
+  hlock=false;hbtn();
+  ed.focus();
+  // Try to place caret near previous visual position
+  requestAnimationFrame(()=>{
+    wr.scrollTop=keepScroll;
+    try{
+      const s=getSelection();
+      const range=document.createRange();
+      // Place caret at start of first visible block near viewport
+      const blocks=[...ed.children];
+      let target=blocks[0]||ed;
+      const wrR=wr.getBoundingClientRect();
+      for(const b of blocks){
+        const r=b.getBoundingClientRect();
+        if(r.top>=wrR.top-4){target=b;break}
+      }
+      range.selectNodeContents(target);
+      range.collapse(true);
+      s.removeAllRanges();s.addRange(range);
+      saved=range.cloneRange();
+    }catch(e){}
+    caretScrollIntoView();
+  });
+}
 $('#bUn').onclick=()=>go(-1);$('#bRe').onclick=()=>go(1);
 addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||/INPUT|SELECT/.test(e.target.tagName))return;const k=e.key.toLowerCase();
  if(k=='z'){e.preventDefault();go(e.shiftKey?1:-1)}else if(k=='y'){e.preventDefault();go(1)}});
