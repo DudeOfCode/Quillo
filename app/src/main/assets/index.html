@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Writer – Document Editor</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><title>Writer – Document Editor</title>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -36,12 +36,13 @@ button:disabled{opacity:.4;cursor:default}
 #tabs .on{color:var(--acc)}
 #tabs .on::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--acc)}
 /* ribbon */
-#ribbon{background:var(--bar);border-bottom:1px solid var(--line);padding:9px 10px}
+#ribbon{background:var(--bar);border-bottom:1px solid var(--line);padding:9px 10px;max-height:38vh;overflow-y:auto}#ribbon.collapsed{display:none}
+.grp{flex-wrap:wrap;max-width:100%}.fold{height:36px;min-width:120px;max-width:100%}#p-tbl .grp:first-child{display:none}
 .p{display:none;flex-wrap:wrap;gap:8px;align-items:center}.p.on{display:flex}
 .grp{display:inline-flex;align-items:center;gap:3px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
 .grp .lb{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:0 6px 0 4px}
 .p i{width:1px;height:24px;background:var(--line);margin:0 2px}.p small{opacity:.8;color:var(--muted);padding:0 3px}
-#wrap{flex:1;overflow:auto;padding:14px 8px}#zoomer{width:max-content;margin:0 auto}
+#wrap{flex:1;overflow:auto;padding:14px 8px;touch-action:pan-x pan-y}#zoomer{width:max-content;margin:0 auto}
 #paper{position:relative;background:#fff;color:#000;box-shadow:0 2px 14px #0004}
 #ed{box-sizing:border-box;width:100%;padding:96px;outline:none;font:15px/1.4 Calibri,Carlito,Arial,sans-serif}
 #ed p,#ed div{margin:0;padding-bottom:8px}#ed h1,#ed h2,#ed h3,#ed ul,#ed ol{margin:0;padding-bottom:8px}#ed ul,#ed ol{padding-left:30px}
@@ -176,7 +177,7 @@ $('#iImg').onclick=()=>$('#fImg').click();
 $('#fImg').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{ex('insertImage',r.result);setTimeout(layout,60)};r.readAsDataURL(f);e.target.value=''};
 document.addEventListener('selectionchange',()=>{const s=getSelection();if(s.rangeCount&&ed.contains(s.anchorNode)){saved=s.getRangeAt(0).cloneRange();curSec=secIdx();const n=s.anchorNode,c=(n.nodeType==3?n.parentElement:n).closest('td,th');lastCell=c||null;status()}});
 ed.addEventListener('input',sync);
-document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button,.p').forEach(x=>x.classList.remove('on'));b.classList.add('on');$('#p-'+b.dataset.t).classList.add('on')});
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{const rb=$('#ribbon');if(b.classList.contains('on')){rb.classList.toggle('collapsed');return}rb.classList.remove('collapsed');document.querySelectorAll('#tabs button,.p').forEach(x=>x.classList.remove('on'));b.classList.add('on');$('#p-'+b.dataset.t).classList.add('on')});
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key=='s'){e.preventDefault();expDocx()}});
 /* ---------- tables ---------- */
 $('#iTbl').onclick=()=>{const r=+$('#tr').value||3,c=+$('#tc').value||3,w=Math.floor((dim()[0]-2*M)/c);
@@ -317,7 +318,16 @@ let ph;function persist(){pushSoon();clearTimeout(ph);ph=setTimeout(()=>{try{con
 try{const d=JSON.parse(localStorage.getItem('writer-draft')||'null');if(d){ed.innerHTML=d.h;land=d.land;cfg0=d.cfg0;$('#title').value=d.t;$('#ori').value=land?'l':'p'}}catch(e){}
 if(!ed.innerHTML.trim())ed.innerHTML='<p>Start typing, or open a .docx file…</p>';
 document.execCommand('styleWithCSS',false,true);document.execCommand('defaultParagraphSeparator',false,'p');
-fit();layout();push();addEventListener('resize',fit);
+fit();layout();push();let lw=innerWidth;addEventListener('resize',()=>{if(innerWidth!=lw){lw=innerWidth;fit()}});
+function foldGroup(attr,label){const bs=[...document.querySelectorAll('['+attr+']')];if(!bs.length)return;const q=document.createElement('select');q.className='fold';
+ q.innerHTML='<option value="">'+label+'</option>'+bs.map((b,i)=>`<option value="${i}">${b.title||b.textContent.trim()}</option>`).join('');bs[0].before(q);bs.forEach(b=>b.style.display='none');q.onchange=()=>{const b=bs[+q.value];q.value='';b&&b.click()}}
+foldGroup('data-t2','Rows & columns ▾');foldGroup('data-b','Apply border ▾');
+if(innerWidth<700)$('#ribbon').classList.add('collapsed');
+(function(){const w=$('#wrap');let d0=0,z0=1,cx=0,cy=0,sl=0,st=0;const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+ w.addEventListener('touchstart',e=>{if(e.touches.length==2){d0=dist(e.touches);z0=z;const r=w.getBoundingClientRect();cx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left;cy=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;sl=w.scrollLeft;st=w.scrollTop}},{passive:true});
+ w.addEventListener('touchmove',e=>{if(e.touches.length==2&&d0){e.preventDefault();const nz=Math.max(.3,Math.min(3,z0*dist(e.touches)/d0)),k=nz/z0;setZ(nz);w.scrollLeft=(sl+cx)*k-cx;w.scrollTop=(st+cy)*k-cy;
+  const o=$('#zm');let c=o.querySelector('#zc');if(!c){c=new Option('','0');c.id='zc';o.add(c,0)}c.value=nz;c.textContent=Math.round(nz*100)+'%';o.value=String(nz)}},{passive:false});
+ w.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0})})();
 </script>
 <script>
 (function(){try{var r=document.documentElement,k='quillo-theme',s=localStorage.getItem(k);if(s)r.dataset.theme=s;var b=document.getElementById('bTheme');if(b)b.onclick=function(){var cur=r.dataset.theme;var sysDark=matchMedia('(prefers-color-scheme:dark)').matches;var next=(cur==='dark'||(!cur&&sysDark))?'light':'dark';r.dataset.theme=next;localStorage.setItem(k,next)};}catch(e){}})();
