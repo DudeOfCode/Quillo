@@ -85,6 +85,19 @@ button:disabled{opacity:.4;cursor:default}
 #st{padding:7px 14px;background:var(--bar);border-top:1px solid var(--line);display:flex;gap:16px;align-items:center;font-size:12px;color:var(--muted);box-shadow:0 -1px 2px rgba(20,30,60,.05)}
 #st span{display:inline-flex;align-items:center;gap:5px}#st .sp{flex:1}#st svg{width:14px;height:14px}#st select{padding:3px 7px}#st label{display:inline-flex;align-items:center;gap:6px}
 #toast{position:fixed;left:50%;bottom:58px;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 18px;border-radius:11px;display:none;z-index:9;box-shadow:0 12px 34px rgba(0,0,0,.4);font-weight:500;max-width:80vw;text-align:center}
+</style><style id="dock">
+/* bottom dock: formatting sits above the keyboard */
+#top{order:0}#wrap{order:1}#st{order:2}#ribbon{order:3}#tabs{order:4}
+#tabs{border-top:1px solid var(--line);border-bottom:0;padding:5px 8px calc(5px + env(safe-area-inset-bottom,0px));justify-content:space-around;gap:4px;overflow:visible;box-shadow:0 -6px 18px rgba(20,30,60,.12);z-index:5}
+#tabs button{flex:1;flex-direction:column;gap:2px;padding:6px 2px 5px;border-radius:13px;font-size:11px;min-width:0;justify-content:center}
+#tabs button svg{width:22px;height:22px}
+#tabs .on{background:var(--active)}#tabs .on::after{display:none}
+#ribbon{border-top:1px solid var(--line);border-bottom:0;border-radius:20px 20px 0 0;box-shadow:0 -10px 26px rgba(20,30,60,.16);padding:10px 10px 8px;max-height:36vh;margin-top:-1px;z-index:4}
+#ribbon.compact{max-height:24vh!important;padding:10px 10px 8px!important;opacity:1!important;overflow-y:auto!important;border-top-width:1px!important}
+body.kb-open #ribbon:not(.collapsed){max-height:24vh}
+body.kb-open #st{display:none}body.kb-open #tabs{padding-bottom:5px}
+#ribbon::before{content:"";display:block;width:38px;height:4px;border-radius:4px;background:var(--line);margin:-4px auto 8px}
+#ribbon .p{padding-bottom:2px}
 </style></head><body>
 <header id="top">
 <span class="brand"><svg viewBox="0 0 24 24"><path d="M20 3c-4 0-9 2-12 6s-4 7-4 12c5 0 8-1 12-4s5-9 4-14z"/><path d="M4 21c1-4 4-8 8-11"/></svg>Quillo</span>
@@ -100,7 +113,7 @@ button:disabled{opacity:.4;cursor:default}
 <button id="bDocx" class="pri" title="Save as .docx"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Save</button>
 <button id="bPdf" class="pri" title="Export as PDF"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h1.4a1.5 1.5 0 0 1 0 3H9zM9 13v5"/></svg>PDF</button>
 </header>
-<nav id="tabs"><button data-t="home" class="on"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Home</button><button data-t="ins"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Insert</button><button data-t="tbl"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/></svg>Table</button><button data-t="pg"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12h6M9 16h4"/></svg>Page &amp; Sections</button></nav>
+<nav id="tabs"><button data-t="home" class="on"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Home</button><button data-t="ins"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Insert</button><button data-t="tbl"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/></svg>Table</button><button data-t="pg"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12h6M9 16h4"/></svg>Page</button></nav>
 <section id="ribbon">
 <div class="p on" id="p-home">
 <div class="grp"><span class="lb">Font</span>
@@ -570,7 +583,7 @@ function runs(c,out=[]){for(const n of c.childNodes){
  if(n.nodeType==3){if(n.textContent)out.push(new (D().TextRun)({text:n.textContent,...props(n.parentElement)}))}
  else if(n.tagName=='BR'){if(n.nextSibling)out.push(new (D().TextRun)({break:1}))}
  else if(n.tagName=='IMG'&&n.src.startsWith('data:')){const b=Uint8Array.from(atob(n.src.split(',')[1]),ch=>ch.charCodeAt(0)),m=n.src.match(/image\/(\w+)/)[1];
-  out.push(new (D().ImageRun)({data:b,type:m=='jpeg'?'jpg':m,transformation:{width:n.width||100,height:n.height||100}}))}
+  out.push(new (D().ImageRun)({data:b,type:m=='jpeg'?'jpg':m,transformation:{width:n.width||100,height:n.height||100,rotation:(+n.dataset.rot||0)<0?360+(+n.dataset.rot):(+n.dataset.rot||0),flip:{horizontal:!!n.dataset.fh,vertical:!!n.dataset.fv}}}))}
  else if(n.nodeType==1&&!/^(UL|OL|TABLE|IMG)$/.test(n.tagName))runs(n,out)}return out}
 function pfmt(cs){const n=v=>Math.round((parseFloat(v)||0)*15),fs=parseFloat(cs.fontSize),lh=parseFloat(cs.lineHeight),ti=parseFloat(cs.textIndent)||0;
  const sp={before:n(cs.paddingTop),after:n(cs.paddingBottom)};if(lh&&fs){sp.line=Math.round(lh/(fs*1.17)*240);sp.lineRule=D().LineRuleType.AUTO}
@@ -725,4 +738,5 @@ if(innerWidth<700)$('#ribbon').classList.add('collapsed');
   let a=b;nodes.forEach(n=>{a.after(n);a=n});layout();toast(wantBlank?'Blank page added':'Page break added')}
  $('#iPb').onclick=()=>insertBreak(false);$('#iBlank').onclick=()=>insertBreak(true)})();
 </script>
+<script src="imageedit.js"></script>
 </body></html>
