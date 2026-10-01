@@ -58,6 +58,8 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             builtInZoomControls = false
             textZoom = 100
+            minimumFontSize = 1
+            minimumLogicalFontSize = 1
             layoutAlgorithm = WebSettings.LayoutAlgorithm.NORMAL
             mediaPlaybackRequiresUserGesture = false
         }
@@ -67,7 +69,15 @@ class MainActivity : AppCompatActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView, request: WebResourceRequest
-            ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+            ): WebResourceResponse? {
+                val r = assetLoader.shouldInterceptRequest(request.url)
+                val path = request.url.path ?: ""
+                if (r != null) when {
+                    path.endsWith(".woff2") -> r.mimeType = "font/woff2"
+                    path.endsWith(".js") -> r.mimeType = "text/javascript"
+                }
+                return r
+            }
 
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(BLOB_HOOK, null)
