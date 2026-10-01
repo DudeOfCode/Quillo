@@ -71,14 +71,6 @@ class MainActivity : AppCompatActivity() {
 
         web.addJavascriptInterface(SaverBridge(), "AndroidSaver")
 
-        // Quillo shows its own floating text menu, so the system one is emptied (selection handles stay).
-        web.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
-            override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean { menu?.clear(); return true }
-            override fun onPrepareActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean { menu?.clear(); return true }
-            override fun onActionItemClicked(mode: android.view.ActionMode?, item: android.view.MenuItem?): Boolean = false
-            override fun onDestroyActionMode(mode: android.view.ActionMode?) {}
-        })
-
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView, request: WebResourceRequest
@@ -331,7 +323,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun mimeForExt(ext: String): String = when (ext.lowercase()) {
         "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        "pdf" -> "application/pdf"
+    get()    "pdf" -> "application/pdf"
         "png" -> "image/png"
         "jpg", "jpeg" -> "image/jpeg"
         else -> "application/octet-stream"
