@@ -18,6 +18,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -56,6 +57,8 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
             useWideViewPort = true
             builtInZoomControls = false
+            textZoom = 100
+            layoutAlgorithm = WebSettings.LayoutAlgorithm.NORMAL
             mediaPlaybackRequiresUserGesture = false
         }
 
