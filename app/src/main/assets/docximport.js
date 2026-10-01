@@ -39,6 +39,7 @@ function ppr(e,o={}){if(!e)return o;
   else if(n=='ind'){const l=g(c,'left')??g(c,'start'),r=g(c,'right')??g(c,'end'),f=g(c,'firstLine'),h=g(c,'hanging');if(l!=null)o.il=+l;if(r!=null)o.ir=+r;if(f!=null)o.fl=+f;if(h!=null)o.fl=-h}
   else if(n=='numPr'){o.num={id:g(k1(c,'numId'),'val'),lvl:+(g(k1(c,'ilvl'),'val')||0)}}
   else if(n=='pageBreakBefore')o.pbb=on(c);
+  else if(n=='keepNext')o.kn=on(c);else if(n=='keepLines')o.kl=on(c);
   else if(n=='shd'){const fl=g(c,'fill');o.bg=!fl||fl=='auto'?null:fl}
   else if(n=='pBdr')o.bd=bdr(c)}
  return o}
@@ -123,7 +124,7 @@ function para(p,X,top){
  if(st.bd)for(const k of['top','bottom','left','right'])if(st.bd[k]&&bcss(st.bd[k])!='none')s.push(`border-${k}:${bcss(st.bd[k])}`);
  const bc=rcss(base,{});if(bc)s.push(bc);
  const tag=/^title$/.test(name)?'h1':/^heading [1-3]$/.test(name)?'h'+name.slice(-1):'p';
- const mk=(h,first)=>{let css=s.join(';');if(!h&&mark.sz)css+=`;font-size:${f2(mark.sz*2/3)}px`;return`<${tag} style="${css}">${first?label:''}${h||'<br>'}</${tag}>`};
+ const mk=(h,first)=>{let css=s.join(';');if(!h&&mark.sz)css+=`;font-size:${f2(mark.sz*2/3)}px`;return`<${tag}${st.kn?' data-kn="1"':''}${st.kl?' data-kl="1"':''} style="${css}">${first?label:''}${h||'<br>'}</${tag}>`};
  let out='';
  if(st.pbb&&top&&X.started)out+='@@PBD@@';
  if(parts.length==1)out+=mk(parts[0],true);
@@ -200,11 +201,12 @@ async function importDocx(buf){
  if(!cfgs.length)cfgs.push({fmt:'none',start:'1',align:'center'});
  let mi=0;
  html=html.replace(/@@SB@@/g,()=>{const c=cfgs[++mi];return!c||c.cont?'':`<div class="sb" contenteditable="false" data-fmt="${c.fmt}" data-start="${c.start}" data-align="${c.align}"><span>Section break (next page)</span><i class="x" title="Remove break">✕</i></div>`});
+ const nPB=(html.match(/@@PBD@@/g)||[]).length;
  html=html.replace(/@@PBD@@/g,'<div class="pb" contenteditable="false"><span>Page break</span><i class="x" title="Remove break">✕</i></div>');
  if(/<\/div>$/.test(html)||!html)html+='<p><br></p>';
  /* page setup from the first section */
  const sp0=X.secs[0],pg=k1(sp0,'pgSz'),pm=k1(sp0,'pgMar');let w=+g(pg,'w')||11906,h=+g(pg,'h')||16838;
  const land=g(pg,'orient')=='landscape'||w>h,m=n=>Math.round((+g(pm,n)||1440)/15);
- return{html,psz:[Math.round(Math.min(w,h)/15),Math.round(Math.max(w,h)/15)],land,mg:{t:m('top'),b:m('bottom'),l:m('left'),r:m('right')},cfg0:{fmt:cfgs[0].fmt,start:cfgs[0].start||'1',align:cfgs[0].align}}}
+ return{nPB,nSB:(html.match(/class="sb"/g)||[]).length,html,psz:[Math.round(Math.min(w,h)/15),Math.round(Math.max(w,h)/15)],land,mg:{t:m('top'),b:m('bottom'),l:m('left'),r:m('right')},cfg0:{fmt:cfgs[0].fmt,start:cfgs[0].start||'1',align:cfgs[0].align}}}
 window.QuilloDocx={import:importDocx};
 })();

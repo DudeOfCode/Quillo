@@ -6,6 +6,7 @@
 <script src="vendor/html2canvas.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <style>
+html,body,#paper,#ed{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 @font-face{font-family:'Carlito';font-weight:400;font-style:normal;src:url(vendor/fonts/carlito-latin-400-normal.woff2) format('woff2')}
 @font-face{font-family:'Carlito';font-weight:400;font-style:italic;src:url(vendor/fonts/carlito-latin-400-italic.woff2) format('woff2')}
 @font-face{font-family:'Carlito';font-weight:700;font-style:normal;src:url(vendor/fonts/carlito-latin-700-normal.woff2) format('woff2')}
@@ -68,8 +69,8 @@ button:disabled{opacity:.4;cursor:default}
 .p i{width:1px;height:24px;background:var(--line);margin:0 2px}.p small{opacity:.8;color:var(--muted);padding:0 3px}
 #wrap{flex:1;overflow:auto;padding:8px 4px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}#zoomer{width:max-content;margin:0 auto}
 #paper{position:relative;background:#fff;color:#000;box-shadow:0 2px 14px #0004}
-#ed{box-sizing:border-box;width:100%;padding:96px;outline:none;font:15px/1.5 Calibri,Carlito,Arial,sans-serif}
-#ed p,#ed div{margin:0;padding-bottom:10px;orphans:3;widows:3}#ed h1,#ed h2,#ed h3{page-break-after:avoid;break-after:avoid-page}#ed h1,#ed h2,#ed h3,#ed ul,#ed ol{margin:0;padding-bottom:8px}#ed ul,#ed ol{padding-left:30px}
+#ed{box-sizing:border-box;width:100%;padding:96px;outline:none;font:14.67px/1.32 Calibri,Carlito,Arial,sans-serif}
+#ed p,#ed div{margin:0;padding-bottom:10.67px;orphans:3;widows:3}#ed h1,#ed h2,#ed h3{page-break-after:avoid;break-after:avoid-page}#ed h1,#ed h2,#ed h3,#ed ul,#ed ol{margin:0;padding-bottom:8px}#ed ul,#ed ol{padding-left:30px}
 #ed h1{font-size:28px}#ed h2{font-size:22px}#ed h3{font-size:18px}#ed img{max-width:100%}
 #ed table{border-collapse:collapse;margin:0}#ed table+p,#ed table+div{padding-top:8px}
 #ed td,#ed th{border:1px solid #000;padding:4px 6px;vertical-align:top;min-width:20px}
@@ -120,7 +121,7 @@ button:disabled{opacity:.4;cursor:default}
 <div class="p" id="p-ins">
 <div class="grp"><span class="lb">Table</span><input type="number" id="tr" value="3" min="1" max="30" title="Rows"> <small>×</small> <input type="number" id="tc" value="3" min="1" max="12" title="Columns"><button id="iTbl" title="Insert table"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M9 4v16"/></svg>Insert</button></div>
 <div class="grp"><span class="lb">Media</span><button id="iImg" title="Insert image"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg></button><input type="file" id="fImg" accept="image/*" hidden><button id="iLnk" title="Insert link"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg></button><button data-c="insertHorizontalRule" title="Horizontal line"><svg viewBox="0 0 24 24"><path d="M4 12h16"/></svg></button></div>
-<div class="grp"><span class="lb">Layout</span><button id="iSec" title="Insert section break (starts a new page)"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 9h16"/><path d="M4 15h16M4 19h16" stroke-dasharray="3 3"/><path d="M12 11v2"/></svg>Section break</button></div>
+<div class="grp"><span class="lb">Layout</span><button id="iSec" title="Insert section break (starts a new page)"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 9h16"/><path d="M4 15h16M4 19h16" stroke-dasharray="3 3"/><path d="M12 11v2"/></svg>Section break</button><button id="iPb" title="Page break at the cursor (new page, same section)"><svg viewBox="0 0 24 24"><path d="M6 3h12v6H6zM6 15h12v6H6z"/><path d="M3 12h18" stroke-dasharray="3 3"/></svg>Page break</button><button id="iBlank" title="Insert an empty page at the cursor"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/></svg>Blank page</button></div>
 </div>
 <div class="p" id="p-tbl">
 <div class="grp"><span class="lb">Cells</span><small>Click a cell · drag to select · drag an edge to resize</small></div>
@@ -129,7 +130,7 @@ button:disabled{opacity:.4;cursor:default}
 <div class="grp"><span class="lb">Shade</span><input type="color" id="sh" title="Cell shading" value="#ffff99"></div>
 </div>
 <div class="p" id="p-pg">
-<div class="grp"><span class="lb">Paper</span><select id="ori"><option value="p">A4 Portrait</option><option value="l">A4 Landscape</option></select></div>
+<div class="grp"><span class="lb">Paper</span><select id="psel"><option value="794,1123">A4</option><option value="816,1056">Letter</option><option value="816,1344">Legal</option><option value="1123,1587">A3</option><option value="559,794">A5</option><option value="" hidden id="pcus">Custom</option></select><span id="pinfo" class="lb" style="text-transform:none"></span><select id="ori"><option value="p">Portrait</option><option value="l">Landscape</option></select></div>
 <div class="grp"><span class="lb">Margins (inches)</span><select id="mpre"><option value="1,1,1,1">Normal 1″</option><option value="0.5,0.5,0.5,0.5">Narrow 0.5″</option><option value="1,1,0.75,0.75">Moderate</option><option value="1,1,2,2">Wide</option><option value="">Custom</option></select><label style="display:flex;gap:4px;align-items:center">Top<input type="number" id="mt" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Bottom<input type="number" id="mb" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Left<input type="number" id="ml" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Right<input type="number" id="mr" min="0" max="3" step="0.1" style="width:62px"></label></div>
 <div class="grp"><span class="lb">Section</span><select id="secSel" title="Choose which section to format"></select><button id="iSec2" title="Insert section break here"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 9h16"/><path d="M4 15h16M4 19h16" stroke-dasharray="3 3"/><path d="M12 11v2"/></svg>Break</button></div>
 <div class="grp"><span class="lb">Page numbers</span><select id="nf" title="Number format"><option value="dec">1, 2, 3</option><option value="ru">I, II, III</option><option value="rl">i, ii, iii</option><option value="none">None</option></select><small>Start</small><input type="number" id="ns" placeholder="cont." title="Start at (blank = continue)"><select id="na" title="Position"><option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></div>
@@ -180,7 +181,7 @@ const sync=()=>{
 
 function canSplit(b){
   if(!/^(P|DIV|BLOCKQUOTE)$/.test(b.tagName)) return false;
-  if(b.classList.contains('sb')||b.classList.contains('pb')) return false;
+  if(b.classList.contains('sb')||b.classList.contains('pb')||b.dataset.kl) return false;
   if(b.querySelector('img,table,ul,ol,h1,h2,h3,h4,h5,h6')) return false;
   return (b.textContent || '').replace(/\s+/g,' ').trim().length > 120;
 }
@@ -287,7 +288,7 @@ function layout(){
       force = false;
     } else if(t < st){
       sh = st - t;
-    } else if(/^H[1-6]$/.test(b.tagName) && t > st && t + h + 48 > en){
+    } else if((/^H[1-6]$/.test(b.tagName) || b.dataset.kn) && t > st && t + h + 48 > en){
       sh = nx - t;
     } else if(t + h > en && h <= us * 0.85 && t > st + 8 && !b.classList.contains('pb')){
       sh = nx - t;
@@ -529,9 +530,9 @@ $('#fOpen').onchange=async e=>{const f=e.target.files[0];if(!f)return;
  try{
   const ab=await f.arrayBuffer();
   let imp=null;try{imp=await QuilloDocx.import(ab)}catch(err){console.error('native import failed',err)}
-  if(imp){ed.innerHTML=imp.html;psz=imp.psz;land=imp.land;Object.assign(mg,imp.mg);cfg0=imp.cfg0;$('#ori').value=land?'l':'p';window.showMargins&&showMargins();
+  if(imp){ed.innerHTML=imp.html;psz=imp.psz;land=imp.land;Object.assign(mg,imp.mg);cfg0=imp.cfg0;$('#ori').value=land?'l':'p';window.syncPaper&&syncPaper();window.showMargins&&showMargins();
    $('#title').value=f.name.replace(/\.docx$/i,'');hist=[];hi=-1;push();
-   requestAnimationFrame(()=>{fit();layout();$('#wrap').scrollTop=0;toast('Opened '+f.name)});e.target.value='';return}
+   requestAnimationFrame(()=>{fit();layout();$('#wrap').scrollTop=0;toast('Opened '+f.name+' — '+imp.nPB+' page break(s), '+imp.nSB+' section break(s)')});e.target.value='';return}
   const r=await mammoth.convertToHtml({arrayBuffer:ab},{
     styleMap:[
       "p[style-name='Title'] => h1:fresh",
@@ -616,6 +617,9 @@ async function expPdf(sa){
  }catch(e){console.error(e);toast('PDF export failed: '+(e&&e.message||e))}finally{paper.classList.remove('exporting');zz.style.zoom=old}}
 $('#bPdf').onclick=()=>expPdf(false);
 /* ---------- zoom, autosave, init ---------- */
+/* Real-size zoom: on Android WebView 1 CSS px = 1/160 in, so a true-size A4 (8.27in) needs 160/96 scaling */
+const ZK=window.AndroidSaver?160/96:1;
+(function(){const o=$('#zm');o.innerHTML='';[50,75,100,125,150,200].forEach(pc=>{const op=new Option(pc+'%'+(pc==100?' (actual size)':''),+(pc/100*ZK).toFixed(4));o.add(op)})})();
 function setZ(v){z=v;$('#zoomer').style.zoom=v}
 $('#zm').onchange=e=>setZ(+e.target.value);
 function fit(){const v=Math.min(1,(innerWidth-16)/dim()[0]);setZ(v);const o=$('#zm');if(![...o.options].some(x=>+x.value==+v.toFixed(2))){const op=new Option('Fit',v);op.selected=true;o.add(op,0)}o.value=v}
@@ -675,8 +679,8 @@ foldGroup('data-t2','Rows & columns ▾');foldGroup('data-b','Apply border ▾')
 if(innerWidth<700)$('#ribbon').classList.add('collapsed');
 (function(){const w=$('#wrap');let d0=0,z0=1,cx=0,cy=0,sl=0,st=0;const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
  w.addEventListener('touchstart',e=>{if(e.touches.length==2){d0=dist(e.touches);z0=z;const r=w.getBoundingClientRect();cx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left;cy=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;sl=w.scrollLeft;st=w.scrollTop}},{passive:true});
- w.addEventListener('touchmove',e=>{if(e.touches.length==2&&d0){e.preventDefault();const nz=Math.max(.3,Math.min(3,z0*dist(e.touches)/d0)),k=nz/z0;setZ(nz);w.scrollLeft=(sl+cx)*k-cx;w.scrollTop=(st+cy)*k-cy;
-  const o=$('#zm');let c=o.querySelector('#zc');if(!c){c=new Option('','0');c.id='zc';o.add(c,0)}c.value=nz;c.textContent=Math.round(nz*100)+'%';o.value=String(nz)}},{passive:false});
+ w.addEventListener('touchmove',e=>{if(e.touches.length==2&&d0){e.preventDefault();const nz=Math.max(.25,Math.min(6,z0*dist(e.touches)/d0)),k=nz/z0;setZ(nz);w.scrollLeft=(sl+cx)*k-cx;w.scrollTop=(st+cy)*k-cy;
+  const o=$('#zm');let c=o.querySelector('#zc');if(!c){c=new Option('','0');c.id='zc';o.add(c,0)}c.value=nz;c.textContent=Math.round(nz/ZK*100)+'%';o.value=String(nz)}},{passive:false});
  w.addEventListener('touchend',e=>{if(e.touches.length<2)d0=0})})();
 </script>
 <script>
@@ -700,5 +704,25 @@ if(innerWidth<700)$('#ribbon').classList.add('collapsed');
  show();window.showMargins=show})();
 
 (function(){const st=document.createElement('style');st.textContent='.pgbrk{display:block;pointer-events:none;user-select:none}';document.head.appendChild(st)})();
+
+(function(){const sel=$('#psel'),info=$('#pinfo');
+ window.syncPaper=()=>{const v=psz.join(',');const o=[...sel.options].find(x=>x.value==v);if(o)sel.value=v;else{const c=$('#pcus');c.value=v;c.textContent='Custom '+(psz[0]/96).toFixed(1)+'×'+(psz[1]/96).toFixed(1)+'″';sel.value=v}
+  const [W,H]=dim();const f=n=>({1123:'11.69',794:'8.27',1587:'16.54',559:'5.83'})[n]||(n/96).toFixed(2);info.textContent=f(H)+' × '+f(W)+' in'};
+ sel.onchange=e=>{if(e.target.value){psz=e.target.value.split(',').map(Number);layout();fit();syncPaper()}};
+ const o=$('#ori').onchange;$('#ori').onchange=e=>{land=e.target.value=='l';layout();fit();syncPaper()};
+ syncPaper()})();
+
+(function(){
+ const mkPb=()=>{const d=document.createElement('div');d.className='pb';d.contentEditable='false';d.innerHTML='<span>Page break</span><i class="x" title="Remove break">✕</i>';return d};
+ const eP=()=>{const p=document.createElement('p');p.innerHTML='<br>';return p};
+ const blank=el=>!el.textContent.trim()&&!el.querySelector('img');
+ function insertBreak(wantBlank){restore();const b=curBlock()||ed.lastElementChild;if(!b)return;
+  const plain=/^(P|DIV|H[1-6]|BLOCKQUOTE)$/.test(b.tagName)&&!b.classList.contains('sb')&&!b.classList.contains('pb');
+  const mid=wantBlank?[mkPb(),eP(),mkPb()]:[mkPb()],nodes=[...mid];
+  if(plain&&saved&&b.contains(saved.startContainer)){const rg=document.createRange();rg.setStart(saved.startContainer,saved.startOffset);if(b.lastChild)rg.setEndAfter(b.lastChild);
+   const nb=b.cloneNode(false);nb.appendChild(rg.extractContents());if(blank(nb))nb.innerHTML='<br>';if(blank(b))b.innerHTML='<br>';nodes.push(nb)}
+  else if(!b.nextElementSibling)nodes.push(eP());
+  let a=b;nodes.forEach(n=>{a.after(n);a=n});layout();toast(wantBlank?'Blank page added':'Page break added')}
+ $('#iPb').onclick=()=>insertBreak(false);$('#iBlank').onclick=()=>insertBreak(true)})();
 </script>
 </body></html>
