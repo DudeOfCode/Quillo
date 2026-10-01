@@ -290,7 +290,7 @@ function layout(){
       sh = st - t;
     } else if((/^H[1-6]$/.test(b.tagName) || b.dataset.kn) && t > st && t + h + 48 > en){
       sh = nx - t;
-    } else if(t + h > en && h <= us * 0.85 && t > st + 8 && !b.classList.contains('pb')){
+    } else if(t + h > en && h <= us * 0.85 && t > st + 8 && !b.classList.contains('pb') && !canSplit(b)){
       sh = nx - t;
     }
     if(sh > 0){
