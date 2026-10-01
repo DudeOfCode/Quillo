@@ -19,6 +19,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import android.view.ActionMode
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -46,7 +47,11 @@ class MainActivity : AppCompatActivity() {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
-        web = WebView(this)
+        // Quillo draws its own text-selection menu, so hide Android's built-in one
+        web = object : WebView(this) {
+            override fun startActionMode(callback: ActionMode.Callback?): ActionMode? = null
+            override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? = null
+        }
         setContentView(web)
 
         web.settings.apply {
@@ -65,6 +70,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         web.addJavascriptInterface(SaverBridge(), "AndroidSaver")
+
+        // Quillo shows its own floating text menu, so the system one is emptied (selection handles stay).
+        web.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
+            override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean { menu?.clear(); return true }
+            override fun onPrepareActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean { menu?.clear(); return true }
+            override fun onActionItemClicked(mode: android.view.ActionMode?, item: android.view.MenuItem?): Boolean = false
+            override fun onDestroyActionMode(mode: android.view.ActionMode?) {}
+        })
 
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
