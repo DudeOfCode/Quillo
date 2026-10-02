@@ -504,7 +504,7 @@ $('#sh').oninput=e=>{targets().forEach(c=>c.style.backgroundColor=e.target.value
 const ov=document.createElement('div');ov.id='tov';paper.appendChild(ov);
 const mk=s=>{const n=s.cloneNode(false);n.removeAttribute('colspan');n.classList.remove('sel');n.innerHTML='<br>';return n};
 function pick(f){const t=tbl();if(!t)return;sel().forEach(x=>x.classList.remove('sel'));let first;
- [...t.rows].forEach((r,ri)=>[...r.cells].forEach((c,ci)=>{if(f(ri,ci)){c.classList.add('sel');first=first||c}}));lastCell=first||lastCell;getSelection().removeAllRanges()}
+ [...t.rows].forEach((r,ri)=>[...r.cells].forEach((c,ci)=>{if(f(ri,ci)){c.classList.add('sel');first=first||c}}));lastCell=first||lastCell;if(first){try{const r=document.createRange();r.selectNodeContents(first);r.collapse(true);const g=getSelection();g.removeAllRanges();g.addRange(r)}catch(e){}}}
 function addR(){const t=tbl(),s=t.rows[t.rows.length-1],nr=s.cloneNode(false);[...s.cells].forEach(c=>nr.appendChild(mk(c)));s.after(nr);sync()}
 function addC(){const t=tbl();[...t.rows].forEach(r=>{const x=r.cells[r.cells.length-1];x&&x.after(mk(x))});sync()}
 function updOv(){ov.innerHTML='';const t=tbl();if(!t||!t.isConnected||!t.rows.length)return;
@@ -606,7 +606,7 @@ function cell(td){const cs=getComputedStyle(td),b={};
  const kids=blk?[...td.childNodes].flatMap(conv):[para(td)];if(!kids.length)kids.push(new (D().Paragraph)(''));
  return new (D().TableCell)({children:kids,borders:b,columnSpan:td.colSpan,width:{size:Math.round(td.offsetWidth*15),type:D().WidthType.DXA},shading:bg?{type:D().ShadingType.CLEAR,fill:bg,color:'auto'}:undefined})}
 function table(t){const rows=[...t.rows],cw=[];[...rows[0].cells].forEach(c=>{for(let i=0;i<c.colSpan;i++)cw.push(Math.round(c.offsetWidth*15/c.colSpan))});
- return new (D().Table)({width:{size:cw.reduce((a,b)=>a+b,0),type:D().WidthType.DXA},columnWidths:cw,borders:D().TableBorders.NONE,
+ return new (D().Table)({indent:{size:Math.round((parseFloat(getComputedStyle(t).marginLeft)||0)*15),type:D().WidthType.DXA},width:{size:cw.reduce((a,b)=>a+b,0),type:D().WidthType.DXA},columnWidths:cw,borders:D().TableBorders.NONE,
   rows:rows.map(r=>new (D().TableRow)({height:{value:Math.round(r.offsetHeight*15),rule:D().HeightRule.ATLEAST},children:[...r.cells].map(cell)}))})}
 function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];if(c.classList&&c.classList.contains('pb'))return[new (D().Paragraph)({children:[new (D().PageBreak)()]})];
  const t=c.tagName;if(t=='UL')return list(c,0);if(t=='OL'){const r='ol'+numCfg.length;numCfg.push({reference:r,levels:[0,1,2,3].map(l=>({level:l,format:'decimal',text:'%'+(l+1)+'.',alignment:'left',style:{paragraph:{indent:{left:720*(l+1),hanging:360}}}}))});return list(c,0,r)}

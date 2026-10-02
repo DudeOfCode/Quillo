@@ -71,7 +71,7 @@ m.addEventListener('click',e=>{const a=e.target.closest('button')?.dataset.a;if(
  if(a=='cut'){document.execCommand('cut');sync();return}
  const cmd={b:'bold',i:'italic',u:'underline',al:'justifyLeft',ac:'justifyCenter',ar:'justifyRight',aj:'justifyFull'}[a];
  if(cmd){document.execCommand(cmd);sync();return}
- if(a=='hl'){document.execCommand('styleWithCSS',false,true);const on=/255,\s*255,\s*0\)/.test(document.queryCommandValue('hiliteColor'));document.execCommand('hiliteColor',false,on?'transparent':'#ffff00');sync()}});
+ if(a=='hl'){window.toggleHL();return}});
 /* ---------- status panel: shown only on demand / while scrolling or zooming ---------- */
 const wrap=document.getElementById('wrap'),panel=document.getElementById('st');
 const stage=document.createElement('div');stage.id='stage';wrap.before(stage);stage.append(wrap,panel);
@@ -88,4 +88,66 @@ panel.addEventListener('pointerdown',arm);panel.addEventListener('change',()=>{a
 wrap.addEventListener('pointerdown',()=>panel.classList.remove('show'));
 document.getElementById('zm').addEventListener('change',()=>{panel.classList.contains('show')||activity()});
 setTimeout(activity,900);
+})();
+
+/* ===== v3: keep selection when tapping the dock, keyboard button, movable table ===== */
+(function(){
+const $=s=>document.querySelector(s);
+/* 1) tapping anywhere in the ribbon / tab bar / top bar never steals focus from the document */
+const guard=e=>{const t=e.target;if(/^(SELECT|INPUT|TEXTAREA|OPTION)$/.test(t.tagName))return;e.preventDefault()};
+['#ribbon','#tabs','#top','#st','#pgchip'].forEach(s=>{const el=$(s);if(el)el.addEventListener('mousedown',guard,true)});
+['#st','#top'].forEach(s=>{const el=$(s);if(el)el.addEventListener('pointerdown',e=>{if(/SELECT|INPUT/.test(e.target.tagName))window.__selFrozen=true},true)});
+/* keep the highlight visible even while a drop-down / colour picker has the focus */
+const sty=document.createElement('style');sty.textContent='::highlight(qsel){background-color:rgba(47,111,237,.38)}#kbBtn.kbon{background:var(--active)}.th.c{touch-action:none}#tghost{position:fixed;z-index:70;pointer-events:none;border:2px dashed #2f6fed;background:rgba(47,111,237,.14);border-radius:4px;display:none}#tins{position:fixed;z-index:70;pointer-events:none;height:4px;border-radius:2px;background:#2f6fed;display:none;box-shadow:0 0 8px #2f6fed99}';document.head.appendChild(sty);
+let hl=null;if(window.CSS&&CSS.highlights&&window.Highlight){hl=new Highlight();CSS.highlights.set('qsel',hl)}
+const showHL=()=>{if(!hl)return;hl.clear();if(saved&&!saved.collapsed&&ed.contains(saved.commonAncestorContainer)&&document.activeElement!==ed)hl.add(saved)},clrHL=()=>hl&&hl.clear();
+ed.addEventListener('blur',()=>setTimeout(showHL,30));ed.addEventListener('focus',clrHL);
+document.addEventListener('selectionchange',()=>{if(document.activeElement===ed)clrHL()});
+['#ribbon','#st','#top'].forEach(s=>{const el=$(s);if(el)el.addEventListener('pointerdown',e=>{if(/SELECT|INPUT/.test(e.target.tagName))setTimeout(showHL,40)},true)});
+/* 2) keyboard show / hide button next to "Page" */
+const tabs=$('#tabs'),kb=document.createElement('button');kb.id='kbBtn';kb.title='Show / hide the keyboard';
+kb.innerHTML='<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7.5 14h9"/></svg>Keyboard';tabs.appendChild(kb);
+let maxH=innerHeight;const isOpen=()=>{maxH=Math.max(maxH,innerHeight);return document.body.classList.contains('kb-open')||innerHeight<maxH-140};
+const upd=()=>kb.classList.toggle('kbon',isOpen());addEventListener('resize',upd);setInterval(upd,500);
+kb.onclick=()=>{if(isOpen()){if(window.AndroidSaver&&AndroidSaver.hideKeyboard)AndroidSaver.hideKeyboard();else if(document.activeElement)document.activeElement.blur()}
+ else{restore();ed.focus();if(window.AndroidSaver&&AndroidSaver.showKeyboard)AndroidSaver.showKeyboard()}setTimeout(upd,300)};
+/* 3) the four-arrow handle selects the table (tap) or moves it (drag) */
+const tov=$('#tov'),gh=document.createElement('div'),ins=document.createElement('div');gh.id='tghost';ins.id='tins';document.body.append(gh,ins);
+const _u=window.updOv;if(typeof _u=='function')window.updOv=function(){if(window.__tdrag||window.__ovPress)return;_u()};
+let d=null,moved=false,timer=null,ovT;
+/* the overlay is rebuilt on mouseup, which used to swallow taps on its buttons: freeze it from press until the click has landed */
+tov.addEventListener('pointerdown',()=>{window.__ovPress=true;clearTimeout(ovT);ovT=setTimeout(()=>{window.__ovPress=false;updOv()},700)},true);
+tov.addEventListener('click',()=>{clearTimeout(ovT);setTimeout(()=>{window.__ovPress=false;updOv()},0)},true);
+const kk=()=>paper.getBoundingClientRect().width/paper.offsetWidth;
+function target(){const bl=[...ed.children].filter(b=>b!==d.t&&!b.classList.contains('pgbrk'));let ref=null;
+ for(const b of bl){const r=b.getBoundingClientRect();if(d.y<r.top+r.height/2){ref=b;break}}return{ref,bl}}
+function update(){const r=d.rect,dx=d.x-d.x0,dy=d.y-d.y0,k=kk(),PR=paper.getBoundingClientRect();
+ Object.assign(gh.style,{left:r.left+dx+'px',top:r.top+dy+'px',width:r.width+'px',height:Math.min(r.height,180)+'px'});
+ const{ref,bl}=target();let y=0;if(ref)y=ref.getBoundingClientRect().top;else{const l=bl[bl.length-1];y=l?l.getBoundingClientRect().bottom:PR.top}
+ d.ml=Math.max(0,Math.min(paper.offsetWidth-mg.l-mg.r-d.t.offsetWidth,d.ml0+dx/k));d.ref=ref;
+ Object.assign(ins.style,{left:PR.left+(mg.l+d.ml)*k+'px',top:y-2+'px',width:Math.max(30,d.t.offsetWidth*k)+'px'})}
+tov.addEventListener('pointerdown',e=>{if(!e.target.closest('.th.c'))return;const t=tbl();if(!t)return;window.__tdrag=true;
+ d={id:e.pointerId,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,t,ml0:parseFloat(getComputedStyle(t).marginLeft)||0,active:false};moved=false});
+document.addEventListener('pointermove',e=>{if(!d||e.pointerId!==d.id)return;d.x=e.clientX;d.y=e.clientY;
+ if(!d.active){if(Math.hypot(d.x-d.x0,d.y-d.y0)<10)return;
+  if(d.t.parentElement!==ed){toast('Only top-level tables can be moved');d=null;window.__tdrag=false;return}
+  d.active=moved=true;d.rect=d.t.getBoundingClientRect();tov.style.visibility='hidden';gh.style.display=ins.style.display='block';
+  timer=setInterval(()=>{const w=$('#wrap'),wr=w.getBoundingClientRect();if(d.y<wr.top+70)w.scrollTop-=14;else if(d.y>wr.bottom-70)w.scrollTop+=14;update()},40)}
+ e.preventDefault();update()},{passive:false});
+function end(e){if(!d||(e&&e.pointerId!==d.id))return;clearInterval(timer);const D=d;d=null;gh.style.display=ins.style.display='none';tov.style.visibility='';window.__tdrag=false;
+ if(!D.active)return;
+ const t=D.t;D.ref?ed.insertBefore(t,D.ref):ed.appendChild(t);t.style.marginLeft=D.ml>2?Math.round(D.ml)+'px':'';
+ if(!t.nextElementSibling||t.nextElementSibling.tagName=='TABLE'){const p=document.createElement('p');p.innerHTML='<br>';t.after(p)}
+ window.__ovPress=false;clearTimeout(ovT);sync();setTimeout(()=>{updOv();toast('Table moved')},80)}
+document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+tov.addEventListener('click',e=>{if(moved){e.stopPropagation();e.preventDefault();moved=false}},true);
+
+/* highlight: tap = apply, tap again = remove */
+const hasHL=n=>{let el=n.parentElement;while(el&&el!==ed&&!/^(P|DIV|H[1-6]|LI|TD|TH|BLOCKQUOTE|TABLE|TR)$/.test(el.tagName)){const bg=getComputedStyle(el).backgroundColor;if(bg&&bg!=='transparent'&&!/rgba\(\s*0,\s*0,\s*0,\s*0\)/.test(bg))return true;el=el.parentElement}return false};
+window.toggleHL=function(){restore();const r=saved;if(!r||r.collapsed){toast('Select some text first');return}
+ const col=($('#hc')&&$('#hc').value)||'#ffff00',root=r.commonAncestorContainer.nodeType==3?r.commonAncestorContainer.parentNode:r.commonAncestorContainer,tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ let any=false,all=true,n;while(n=tw.nextNode()){if(!r.intersectsNode(n))continue;let s0=0,e0=n.length;if(n===r.startContainer)s0=r.startOffset;if(n===r.endContainer)e0=r.endOffset;if(!n.textContent.slice(s0,e0).trim())continue;any=true;if(!hasHL(n))all=false}
+ document.execCommand('styleWithCSS',false,true);document.execCommand('hiliteColor',false,(any&&all)?'transparent':col);sync()};
+const hc=$('#hc');if(hc){const b=document.createElement('button');b.id='hlBtn';b.title='Highlight – tap again to remove';
+ b.innerHTML='<svg viewBox="0 0 24 24"><path d="m4 16 8-8 4 4-8 8H4zM14 6l2-2 4 4-2 2"/></svg>';hc.before(b);b.onclick=()=>window.toggleHL()}
 })();
