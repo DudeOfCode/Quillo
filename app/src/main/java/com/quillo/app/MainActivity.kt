@@ -20,6 +20,10 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.view.ActionMode
+import android.view.View
+import android.view.MenuItem
+import android.view.Menu
+import android.graphics.Rect
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -47,10 +51,31 @@ class MainActivity : AppCompatActivity() {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
-        // Quillo draws its own text-selection menu, so hide Android's built-in one
+        // Quillo draws its own text menu. Android's built-in one is emptied (NOT cancelled):
+        // cancelling the action mode makes WebView clear the selection, which broke text selection.
         web = object : WebView(this) {
-            override fun startActionMode(callback: ActionMode.Callback?): ActionMode? = null
-            override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? = null
+            private fun hideMenu(cb: ActionMode.Callback?): ActionMode.Callback? {
+                if (cb == null) return null
+                return object : ActionMode.Callback2() {
+                    override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+                        val ok = cb.onCreateActionMode(mode, menu); menu.clear(); return ok
+                    }
+                    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+                        cb.onPrepareActionMode(mode, menu); menu.clear(); return true
+                    }
+                    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean =
+                        cb.onActionItemClicked(mode, item)
+                    override fun onDestroyActionMode(mode: ActionMode) = cb.onDestroyActionMode(mode)
+                    override fun onGetContentRect(mode: ActionMode, view: View, outRect: Rect) {
+                        if (cb is ActionMode.Callback2) cb.onGetContentRect(mode, view, outRect)
+                        else super.onGetContentRect(mode, view, outRect)
+                    }
+                }
+            }
+            override fun startActionMode(callback: ActionMode.Callback?): ActionMode? =
+                super.startActionMode(hideMenu(callback))
+            override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? =
+                super.startActionMode(hideMenu(callback), type)
         }
         setContentView(web)
 
