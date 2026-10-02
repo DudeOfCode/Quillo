@@ -319,11 +319,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sanitize(n: String): String =
-        n.ifBlank { "document" }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        n.ifBlank { "document" }.map { c -> if (c == '\\' || c == '"' || c in "/:*?<>|") '_' else c }.joinToString("")
 
     private fun mimeForExt(ext: String): String = when (ext.lowercase()) {
         "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    get()    "pdf" -> "application/pdf"
+        "pdf" -> "application/pdf"
         "png" -> "image/png"
         "jpg", "jpeg" -> "image/jpeg"
         else -> "application/octet-stream"
