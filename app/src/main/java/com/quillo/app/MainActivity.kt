@@ -20,6 +20,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.view.ActionMode
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import android.view.View
 import android.view.MenuItem
 import android.view.Menu
@@ -199,6 +201,17 @@ class MainActivity : AppCompatActivity() {
 
     /** Bridge the web app calls to hand a generated file (docx / pdf) back to Android. */
     inner class SaverBridge {
+        @JavascriptInterface
+        fun showKeyboard() = runOnUiThread {
+            web.requestFocus()
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(web, InputMethodManager.SHOW_IMPLICIT)
+        }
+
+        @JavascriptInterface
+        fun hideKeyboard() = runOnUiThread {
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(web.windowToken, 0)
+        }
+
         @JavascriptInterface
         fun saveAs(base64: String, filename: String, mime: String) {
             val bytes = try { Base64.decode(base64, Base64.DEFAULT) } catch (e: Exception) {
