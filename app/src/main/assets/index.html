@@ -6,6 +6,7 @@
 <script src="vendor/html2canvas.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <style>
+.cm{position:absolute;width:18px;height:18px;pointer-events:none;z-index:1;box-sizing:border-box;border:0 solid #8d95a5}.cm.tl{border-right-width:1px;border-bottom-width:1px}.cm.tr{border-left-width:1px;border-bottom-width:1px}.cm.bl{border-right-width:1px;border-top-width:1px}.cm.br{border-left-width:1px;border-top-width:1px}.exporting .cm{display:none}
 html,body,#paper,#ed{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 @font-face{font-family:'Carlito';font-weight:400;font-style:normal;src:url(vendor/fonts/carlito-latin-400-normal.woff2) format('woff2')}
 @font-face{font-family:'Carlito';font-weight:400;font-style:italic;src:url(vendor/fonts/carlito-latin-400-italic.woff2) format('woff2')}
@@ -144,7 +145,7 @@ body.kb-open #st{display:none}body.kb-open #tabs{padding-bottom:5px}
 </div>
 <div class="p" id="p-pg">
 <div class="grp"><span class="lb">Paper</span><select id="psel"><option value="794,1123">A4</option><option value="816,1056">Letter</option><option value="816,1344">Legal</option><option value="1123,1587">A3</option><option value="559,794">A5</option><option value="" hidden id="pcus">Custom</option></select><span id="pinfo" class="lb" style="text-transform:none"></span><select id="ori"><option value="p">Portrait</option><option value="l">Landscape</option></select></div>
-<div class="grp"><span class="lb">Margins (inches)</span><select id="mpre"><option value="1,1,1,1">Normal 1″</option><option value="0.5,0.5,0.5,0.5">Narrow 0.5″</option><option value="1,1,0.75,0.75">Moderate</option><option value="1,1,2,2">Wide</option><option value="">Custom</option></select><label style="display:flex;gap:4px;align-items:center">Top<input type="number" id="mt" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Bottom<input type="number" id="mb" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Left<input type="number" id="ml" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Right<input type="number" id="mr" min="0" max="3" step="0.1" style="width:62px"></label></div>
+<div class="grp"><span class="lb">Margins (inches)</span><select id="mpre"><option value="1,1,1,1">Normal 1″</option><option value="0.5,0.5,0.5,0.5">Narrow 0.5″</option><option value="1,1,0.75,0.75">Moderate</option><option value="1,1,2,2">Wide</option><option value="">Custom</option></select><label style="display:flex;gap:4px;align-items:center">Top<input type="number" id="mt" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Bottom<input type="number" id="mb" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Left<input type="number" id="ml" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Right<input type="number" id="mr" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Header<input type="number" id="mh" min="0" max="3" step="0.1" style="width:62px"></label><label style="display:flex;gap:4px;align-items:center">Footer<input type="number" id="mf" min="0" max="3" step="0.1" style="width:62px"></label></div>
 <div class="grp"><span class="lb">Section</span><select id="secSel" title="Choose which section to format"></select><button id="iSec2" title="Insert section break here"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 9h16"/><path d="M4 15h16M4 19h16" stroke-dasharray="3 3"/><path d="M12 11v2"/></svg>Break</button></div>
 <div class="grp"><span class="lb">Page numbers</span><select id="nf" title="Number format"><option value="dec">1, 2, 3</option><option value="ru">I, II, III</option><option value="rl">i, ii, iii</option><option value="none">None</option></select><small>Start</small><input type="number" id="ns" placeholder="cont." title="Start at (blank = continue)"><select id="na" title="Position"><option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></div>
 </div>
@@ -154,9 +155,9 @@ body.kb-open #st{display:none}body.kb-open #tabs{padding-bottom:5px}
 <div id="toast"></div>
 <script>
 const $=s=>document.querySelector(s),ed=$('#ed'),paper=$('#paper'),M=96;
-const mg={t:96,b:96,l:96,r:96};
+const mg={t:96,b:96,l:96,r:96,h:48,f:48};
 let land=false,saved=null,lastCell=null,curSec=0,z=1,cfg0={fmt:'dec',start:'1',align:'center'},sbP=[];
-let psz=[794,1123];const dim=()=>land?[psz[1],psz[0]]:psz.slice();
+let psz=[816,1056];const dim=()=>land?[psz[1],psz[0]]:psz.slice();
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t.h);t.h=setTimeout(()=>t.style.display='none',2600)};
 const rom=n=>{let r='';[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']].forEach(([v,s])=>{while(n>=v){r+=s;n-=v}});return r};
 const fmtN=(n,f)=>f=='dec'?n:f=='rl'?rom(n).toLowerCase():f=='ru'?rom(n):'';
@@ -334,7 +335,7 @@ function layout(){
   const bt = l ? l.offsetTop + l.offsetHeight + mg.b : H;
   const pages = Math.max(1, Math.ceil(bt / H));
   ed.style.minHeight = pages * H + 'px';
-  paper.querySelectorAll('.pf,.pl').forEach(e => e.remove());
+  paper.querySelectorAll('.pf,.pl,.cm').forEach(e => e.remove());
   let n = 0, prev = -1;
   for(let p = 0; p < pages; p++){
     const s = sbP.filter(x => x < p).length;
@@ -346,7 +347,9 @@ function layout(){
     const f = document.createElement('div');
     f.className = 'pf';
     // Place page number inside bottom margin, never over content
-    f.style.top = ((p + 1) * H - Math.min(mg.b, footerReserve) + 4) + 'px';
+    f.style.top = ((p + 1) * H - (mg.f || 48) - 16) + 'px';
+    /* WPS-style corner marks: end of header area (top) and start of footer area (bottom) */
+    [[mg.l,mg.t,'tl'],[W-mg.r,mg.t,'tr'],[mg.l,H-mg.b,'bl'],[W-mg.r,H-mg.b,'br']].forEach(([x,y,k])=>{const m=document.createElement('div');m.className='cm '+k;m.style.left=(k[1]=='l'?x-18:x)+'px';m.style.top=(p*H+(k[0]=='t'?y-18:y))+'px';paper.appendChild(m)});
     f.style.left = mg.l + 'px';
     f.style.right = mg.r + 'px';
     f.style.textAlign = c.align || 'center';
@@ -614,7 +617,7 @@ async function expDocx(sa){
   const NF={dec:d.NumberFormat.DECIMAL,ru:d.NumberFormat.UPPER_ROMAN,rl:d.NumberFormat.LOWER_ROMAN,none:d.NumberFormat.DECIMAL},AL={left:d.AlignmentType.LEFT,center:d.AlignmentType.CENTER,right:d.AlignmentType.RIGHT};
   const doc=new d.Document({numbering:{config:numCfg.length?numCfg:[{reference:'x',levels:[{level:0,format:'decimal',text:'%1.',alignment:'left'}]}]},styles:{default:{document:{run:{font:'Calibri',size:22}}}},
    sections:secs.map((ch,i)=>{const c=getCfg(i),pn={formatType:NF[c.fmt]};if(c.start!==''&&c.start!=null)pn.start=parseInt(c.start)||0;
-    return{properties:{type:d.SectionType.NEXT_PAGE,page:{size:{width:Math.round(psz[0]*15),height:Math.round(psz[1]*15),orientation:land?d.PageOrientation.LANDSCAPE:d.PageOrientation.PORTRAIT},margin:{top:Math.round(mg.t*15),bottom:Math.round(mg.b*15),left:Math.round(mg.l*15),right:Math.round(mg.r*15)},pageNumbers:pn}},
+    return{properties:{type:d.SectionType.NEXT_PAGE,page:{size:{width:Math.round(psz[0]*15),height:Math.round(psz[1]*15),orientation:land?d.PageOrientation.LANDSCAPE:d.PageOrientation.PORTRAIT},margin:{header:Math.round((mg.h||48)*15),footer:Math.round((mg.f||48)*15),top:Math.round(mg.t*15),bottom:Math.round(mg.b*15),left:Math.round(mg.l*15),right:Math.round(mg.r*15)},pageNumbers:pn}},
      footers:{default:new d.Footer({children:[new d.Paragraph({alignment:AL[c.align],children:c.fmt=='none'?[]:[new d.TextRun({children:[d.PageNumber.CURRENT]})]})]})},
      children:ch.length?ch:[new d.Paragraph('')]}})});
   await save(await d.Packer.toBlob(doc),fname('.docx'),sa);
@@ -711,9 +714,9 @@ if(innerWidth<700)$('#ribbon').classList.add('collapsed');
   if(a=='docx'){m.classList.remove('on');expDocx(true)}else if(a=='pdf'){m.classList.remove('on');expPdf(true)}
   else if(!window.AndroidSaver)toast('Folder choice is available in the Android app');else if(a=='ch')AndroidSaver.chooseFolder();else AndroidSaver.resetFolder()}})();
 
-(function(){const f={mt:'t',mb:'b',ml:'l',mr:'r'},ids=Object.keys(f);
- const show=()=>{ids.forEach(i=>$('#'+i).value=+(mg[f[i]]/96).toFixed(2));const v=ids.map(i=>+$('#'+i).value).join(',');const o=[...$('#mpre').options].find(x=>x.value&&x.value.split(',').join(',')==v);$('#mpre').value=o?o.value:''};
- const apply=(a,ns)=>{ids.forEach((i,k)=>mg[f[i]]=Math.round(Math.max(0,Math.min(3,+a[k]||0))*96));layout();if(!ns)show()};
+(function(){const f={mt:'t',mb:'b',ml:'l',mr:'r',mh:'h',mf:'f'},ids=Object.keys(f);
+ const show=()=>{ids.forEach(i=>$('#'+i).value=+(mg[f[i]]/96).toFixed(2));const v=ids.slice(0,4).map(i=>+$('#'+i).value).join(',');const o=[...$('#mpre').options].find(x=>x.value&&x.value.split(',').join(',')==v);$('#mpre').value=o?o.value:''};
+ const apply=(a,ns)=>{ids.forEach((i,k)=>{if(k<4||a[k]!==undefined)mg[f[i]]=Math.round(Math.max(0,Math.min(3,+a[k]||0))*96)});layout();if(!ns)show()};
  ids.forEach(i=>$('#'+i).oninput=()=>{const a=ids.map(j=>+$('#'+j).value);apply(a,true);$('#mpre').value=''});
  $('#mpre').onchange=e=>{if(e.target.value)apply(e.target.value.split(','))};
  show();window.showMargins=show})();

@@ -130,7 +130,8 @@ function para(p,X,top){
  if(parts.length==1)out+=mk(parts[0],true);
  else parts.forEach((h,i)=>{if(h||(i==0&&false))out+=mk(h,i==0);if(i<parts.length-1)out+='@@PBD@@'});
  X.started=true;
- if(pp&&top){const sp=k1(pp,'sectPr');if(sp){X.secs.push(sp);out+='@@SB@@'}}
+ if(top)X.n0=(X.n0||0)+1;
+ if(pp&&top){const sp=k1(pp,'sectPr');if(sp){X.secs.push(sp);X.secN.push(X.n0);X.n0=0;out+='@@SB@@'}}
  return out}
 function tstyle(S,sid){const a=chain(S,sid);return{bd:Object.assign({},...a.map(s=>s.bd||{})),mar:Object.assign({},...a.map(s=>s.mar||{}))}}
 function table(t,X){
@@ -179,9 +180,9 @@ async function importDocx(buf){
  for(const id in rels){if(rels[id].ty!='image')continue;const p='word/'+rels[id].tg.replace(/^\.?\//,''),f=Z.file(p);
   if(f){const ext=p.split('.').pop().toLowerCase(),mt={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',svg:'image/svg+xml',bmp:'image/bmp'}[ext];
    if(mt)img[id]=`data:${mt};base64,`+await f.async('base64')}}
- const X={...sx,num,cnt:{},secs:[],links,img,started:false};
+ const X={...sx,num,cnt:{},secs:[],secN:[],links,img,started:false};
  const body=k1(dX.documentElement,'body');let html=blocks(body,X,true);
- const fin=k1(body,'sectPr');if(fin)X.secs.push(fin);
+ const fin=k1(body,'sectPr');if(fin){X.secs.push(fin);X.secN.push(X.n0||0)}
  /* footers -> page-number settings per section */
  const foot={};
  async function footerInfo(sp){const fr=ks(sp,'footerReference').find(e=>g(e,'type')=='default')||ks(sp,'footerReference')[0];if(!fr)return null;
@@ -205,8 +206,9 @@ async function importDocx(buf){
  html=html.replace(/@@PBD@@/g,'<div class="pb" contenteditable="false"><span>Page break</span><i class="x" title="Remove break">✕</i></div>');
  if(/<\/div>$/.test(html)||!html)html+='<p><br></p>';
  /* page setup from the first section */
- const sp0=X.secs[0],pg=k1(sp0,'pgSz'),pm=k1(sp0,'pgMar');let w=+g(pg,'w')||11906,h=+g(pg,'h')||16838;
+ let di=0;X.secN.forEach((n,i)=>{if(n>X.secN[di])di=i});/* the section with most paragraphs is the document body: use its page setup */
+ const sp0=X.secs[di]||X.secs[0],pg=k1(sp0,'pgSz'),pm=k1(sp0,'pgMar');let w=+g(pg,'w')||11906,h=+g(pg,'h')||16838;
  const land=g(pg,'orient')=='landscape'||w>h,m=n=>Math.round((+g(pm,n)||1440)/15);
- return{nPB,nSB:(html.match(/class="sb"/g)||[]).length,html,psz:[Math.round(Math.min(w,h)/15),Math.round(Math.max(w,h)/15)],land,mg:{t:m('top'),b:m('bottom'),l:m('left'),r:m('right')},cfg0:{fmt:cfgs[0].fmt,start:cfgs[0].start||'1',align:cfgs[0].align}}}
+ return{nPB,nSB:(html.match(/class="sb"/g)||[]).length,html,psz:[Math.round(Math.min(w,h)/15),Math.round(Math.max(w,h)/15)],land,mg:{t:m('top'),b:m('bottom'),l:m('left'),r:m('right'),h:Math.round((+g(pm,'header')||720)/15),f:Math.round((+g(pm,'footer')||720)/15)},cfg0:{fmt:cfgs[0].fmt,start:cfgs[0].start||'1',align:cfgs[0].align}}}
 window.QuilloDocx={import:importDocx};
 })();
