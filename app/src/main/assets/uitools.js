@@ -107,10 +107,16 @@ document.addEventListener('selectionchange',()=>{if(document.activeElement===ed)
 /* 2) keyboard show / hide button next to "Page" */
 const tabs=$('#tabs'),kb=document.createElement('button');kb.id='kbBtn';kb.title='Show / hide the keyboard';
 kb.innerHTML='<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7.5 14h9"/></svg>Keyboard';tabs.appendChild(kb);
-let maxH=innerHeight;const isOpen=()=>{maxH=Math.max(maxH,innerHeight);return document.body.classList.contains('kb-open')||innerHeight<maxH-140};
-const upd=()=>kb.classList.toggle('kbon',isOpen());addEventListener('resize',upd);setInterval(upd,500);
-kb.onclick=()=>{if(isOpen()){if(window.AndroidSaver&&AndroidSaver.hideKeyboard)AndroidSaver.hideKeyboard();else if(document.activeElement)document.activeElement.blur()}
- else{restore();ed.focus();if(window.AndroidSaver&&AndroidSaver.showKeyboard)AndroidSaver.showKeyboard()}setTimeout(upd,300)};
+let maxH=innerHeight;
+const isOpen=()=>{if(window.AndroidSaver&&window.__kb!==undefined)return !!window.__kb;maxH=Math.max(maxH,innerHeight);return document.body.classList.contains('kb-open')||innerHeight<maxH-140};
+const upd=()=>kb.classList.toggle('kbon',isOpen());addEventListener('resize',upd);addEventListener('kbchange',upd);setInterval(upd,500);
+kb.onclick=()=>{
+ if(isOpen()){ /* keyboard is up -> hide it (the document keeps its selection) */
+  if(window.AndroidSaver&&AndroidSaver.hideKeyboard)AndroidSaver.hideKeyboard();else if(document.activeElement)document.activeElement.blur();
+ }else{ /* keyboard is down -> bring the cursor back into the document and show it */
+  restore();ed.focus();if(window.AndroidSaver&&AndroidSaver.showKeyboard)AndroidSaver.showKeyboard();
+ }
+ setTimeout(upd,350)};
 /* 3) the four-arrow handle selects the table (tap) or moves it (drag) */
 const tov=$('#tov'),gh=document.createElement('div'),ins=document.createElement('div');gh.id='tghost';ins.id='tins';document.body.append(gh,ins);
 const _u=window.updOv;if(typeof _u=='function')window.updOv=function(){if(window.__tdrag||window.__ovPress)return;_u()};
