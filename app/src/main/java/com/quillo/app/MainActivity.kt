@@ -39,6 +39,7 @@ import java.io.FileOutputStream
 class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
+    @Volatile private var kbVisible = false
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
     // Data parked for a pending pre-Q save that needs the storage permission.
@@ -80,6 +81,19 @@ class MainActivity : AppCompatActivity() {
                 super.startActionMode(hideMenu(callback), type)
         }
         setContentView(web)
+
+        // track whether the on-screen keyboard is showing (works on every Android version)
+        val rootView = window.decorView
+        rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            val r = Rect()
+            rootView.getWindowVisibleDisplayFrame(r)
+            val full = rootView.rootView.height
+            val open = full > 0 && (full - r.bottom) > full * 0.15
+            if (open != kbVisible) {
+                kbVisible = open
+                web.post { web.evaluateJavascript("window.__kb=$open;window.dispatchEvent(new Event('kbchange'))", null) }
+            }
+        }
 
         web.settings.apply {
             javaScriptEnabled = true
@@ -202,14 +216,21 @@ class MainActivity : AppCompatActivity() {
     /** Bridge the web app calls to hand a generated file (docx / pdf) back to Android. */
     inner class SaverBridge {
         @JavascriptInterface
+        fun isKeyboardOpen(): Boolean = kbVisible
+
+        @JavascriptInterface
         fun showKeyboard() = runOnUiThread {
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             web.requestFocus()
-            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(web, InputMethodManager.SHOW_IMPLICIT)
+            imm.showSoftInput(web, InputMethodManager.SHOW_IMPLICIT)
+            // some devices ignore the implicit request: force it if the keyboard did not appear
+            web.postDelayed({ if (!kbVisible) imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0) }, 250)
         }
 
         @JavascriptInterface
         fun hideKeyboard() = runOnUiThread {
-            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(web.windowToken, 0)
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(web.windowToken, 0)
         }
 
         @JavascriptInterface
