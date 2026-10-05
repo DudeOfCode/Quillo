@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
+import android.provider.OpenableColumns
 import android.provider.DocumentsContract
 import org.json.JSONObject
 import android.webkit.JavascriptInterface
@@ -40,6 +41,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     @Volatile private var kbVisible = false
+    private var pageReady = false
+    private var pendingUri: Uri? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
     // Data parked for a pending pre-Q save that needs the storage permission.
@@ -81,14 +84,12 @@ class MainActivity : AppCompatActivity() {
                 super.startActionMode(hideMenu(callback), type)
         }
         setContentView(web)
+        pendingUri = uriFrom(intent)
 
         // track whether the on-screen keyboard is showing (works on every Android version)
         val rootView = window.decorView
         rootView.viewTreeObserver.addOnGlobalLayoutListener {
-            val r = Rect()
-            rootView.getWindowVisibleDisplayFrame(r)
-            val full = rootView.rootView.height
-            val open = full > 0 && (full - r.bottom) > full * 0.15
+            val open = kbNow()
             if (open != kbVisible) {
                 kbVisible = open
                 web.post { web.evaluateJavascript("window.__kb=$open;window.dispatchEvent(new Event('kbchange'))", null) }
@@ -127,6 +128,8 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(BLOB_HOOK, null)
+                pageReady = true
+                deliverPending()
             }
         }
 
@@ -216,7 +219,7 @@ class MainActivity : AppCompatActivity() {
     /** Bridge the web app calls to hand a generated file (docx / pdf) back to Android. */
     inner class SaverBridge {
         @JavascriptInterface
-        fun isKeyboardOpen(): Boolean = kbVisible
+        fun isKeyboardOpen(): Boolean = kbNow()
 
         @JavascriptInterface
         fun showKeyboard() = runOnUiThread {
@@ -231,6 +234,12 @@ class MainActivity : AppCompatActivity() {
         fun hideKeyboard() = runOnUiThread {
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(web.windowToken, 0)
+            web.postDelayed({
+                if (kbNow()) {
+                    imm.hideSoftInputFromWindow(web.windowToken, InputMethodManager.HIDE_NOT_ALWAYS)
+                    web.clearFocus()
+                }
+            }, 150)
         }
 
         @JavascriptInterface
@@ -282,6 +291,62 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var asBytes: ByteArray? = null
+
+    /** true while the on-screen keyboard is visible (works on every Android version) */
+    private fun kbNow(): Boolean {
+        val dv = window.decorView
+        if (Build.VERSION.SDK_INT >= 30) {
+            dv.rootWindowInsets?.let { return it.isVisible(android.view.WindowInsets.Type.ime()) }
+        }
+        val r = Rect()
+        dv.getWindowVisibleDisplayFrame(r)
+        val full = dv.rootView.height
+        return full > 0 && (full - r.bottom) > full * 0.15
+    }
+
+    // ---------- "Open with" support: .docx handed to us by another app ----------
+    private fun uriFrom(i: Intent?): Uri? {
+        if (i == null) return null
+        return when (i.action) {
+            Intent.ACTION_VIEW, Intent.ACTION_EDIT -> i.data
+            Intent.ACTION_SEND ->
+                if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_STREAM)
+            else -> null
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        uriFrom(intent)?.let { pendingUri = it; if (pageReady) deliverPending() }
+    }
+
+    private fun deliverPending() {
+        val uri = pendingUri ?: return
+        pendingUri = null
+        Thread {
+            try {
+                var name = "document.docx"
+                try {
+                    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                        if (c.moveToFirst()) c.getString(0)?.let { name = it }
+                    }
+                } catch (e: Exception) { uri.lastPathSegment?.let { name = it.substringAfterLast('/') } }
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw Exception("empty")
+                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                runOnUiThread { web.evaluateJavascript("window.__dc=''", null) }
+                var p = 0
+                while (p < b64.length) {
+                    val part = b64.substring(p, minOf(b64.length, p + 300000)); p += 300000
+                    runOnUiThread { web.evaluateJavascript("window.__dc+='$part'", null) }
+                }
+                runOnUiThread { web.evaluateJavascript("window.openDocxFromAndroid(" + JSONObject.quote(name) + ")", null) }
+            } catch (e: Exception) {
+                runOnUiThread { toast("Could not open the file: " + (e.message ?: "")) }
+            }
+        }.start()
+    }
     private val prefs by lazy { getSharedPreferences("quillo", MODE_PRIVATE) }
     private fun treeUri(): Uri? = prefs.getString("tree", null)?.let { Uri.parse(it) }
 
