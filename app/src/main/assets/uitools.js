@@ -108,15 +108,22 @@ document.addEventListener('selectionchange',()=>{if(document.activeElement===ed)
 const tabs=$('#tabs'),kb=document.createElement('button');kb.id='kbBtn';kb.title='Show / hide the keyboard';
 kb.innerHTML='<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7.5 14h9"/></svg>Keyboard';tabs.appendChild(kb);
 let maxH=innerHeight;
-const isOpen=()=>{if(window.AndroidSaver&&window.__kb!==undefined)return !!window.__kb;maxH=Math.max(maxH,innerHeight);return document.body.classList.contains('kb-open')||innerHeight<maxH-140};
+const isOpen=()=>{if(window.AndroidSaver&&AndroidSaver.isKeyboardOpen){try{return !!AndroidSaver.isKeyboardOpen()}catch(e){}}if(window.AndroidSaver&&window.__kb!==undefined)return !!window.__kb;maxH=Math.max(maxH,innerHeight);return document.body.classList.contains('kb-open')||innerHeight<maxH-140};
 const upd=()=>kb.classList.toggle('kbon',isOpen());addEventListener('resize',upd);addEventListener('kbchange',upd);setInterval(upd,500);
-kb.onclick=()=>{
- if(isOpen()){ /* keyboard is up -> hide it (the document keeps its selection) */
-  if(window.AndroidSaver&&AndroidSaver.hideKeyboard)AndroidSaver.hideKeyboard();else if(document.activeElement)document.activeElement.blur();
- }else{ /* keyboard is down -> bring the cursor back into the document and show it */
+let kbBusy=0;
+function toggleKb(){const now=Date.now();if(now-kbBusy<450)return;kbBusy=now;
+ if(isOpen()){ /* keyboard is up -> hide it; blur makes WebView drop the keyboard too, the highlight stays visible */
+  if(window.AndroidSaver&&AndroidSaver.hideKeyboard)AndroidSaver.hideKeyboard();
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+ }else{ /* keyboard is down -> put the cursor back in the document and show it */
   restore();ed.focus();if(window.AndroidSaver&&AndroidSaver.showKeyboard)AndroidSaver.showKeyboard();
  }
- setTimeout(upd,350)};
+ setTimeout(upd,350);setTimeout(upd,900)}
+kb.addEventListener('pointerup',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;toggleKb()});
+kb.addEventListener('click',toggleKb); /* same action for keyboards / accessibility; debounced so a tap never fires twice */
+/* "Open with": the Android app hands over the file in pieces (window.__dc) and calls this */
+window.openDocxFromAndroid=function(name){try{const b=atob(window.__dc||'');window.__dc='';const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+ const f=new File([u],name||'document.docx',{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}),dt=new DataTransfer();dt.items.add(f);const inp=document.getElementById('fOpen');inp.files=dt.files;inp.dispatchEvent(new Event('change'))}catch(e){toast('Could not open the file')}};
 /* 3) the four-arrow handle selects the table (tap) or moves it (drag) */
 const tov=$('#tov'),gh=document.createElement('div'),ins=document.createElement('div');gh.id='tghost';ins.id='tins';document.body.append(gh,ins);
 const _u=window.updOv;if(typeof _u=='function')window.updOv=function(){if(window.__tdrag||window.__ovPress)return;_u()};
