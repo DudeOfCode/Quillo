@@ -123,8 +123,8 @@ function para(p,X,top){
  if(st.bg)s.push(`background-color:#${st.bg}`);
  if(st.bd)for(const k of['top','bottom','left','right'])if(st.bd[k]&&bcss(st.bd[k])!='none')s.push(`border-${k}:${bcss(st.bd[k])}`);
  const bc=rcss(base,{});if(bc)s.push(bc);
- const tag=/^title$/.test(name)?'h1':/^heading [1-3]$/.test(name)?'h'+name.slice(-1):'p';
- const mk=(h,first)=>{let css=s.join(';');if(!h&&mark.sz)css+=`;font-size:${f2(mark.sz*2/3)}px`;return`<${tag}${st.kn?' data-kn="1"':''}${st.kl?' data-kl="1"':''} style="${css}">${first?label:''}${h||'<br>'}</${tag}>`};
+ const tag=/^title$/.test(name)?'h1':/^heading [1-6]$/.test(name)?'h'+name.slice(-1):'p';
+ const mk=(h,first)=>{let css=s.join(';');if(!h&&mark.sz)css+=`;font-size:${f2(mark.sz*2/3)}px`;return`<${tag}${/^title$/.test(name)?' data-notoc="1"':''}${st.kn?' data-kn="1"':''}${st.kl?' data-kl="1"':''} style="${css}">${first?label:''}${h||'<br>'}</${tag}>`};
  let out='';
  if(st.pbb&&top&&X.started)out+='@@PBD@@';
  if(parts.length==1)out+=mk(parts[0],true);

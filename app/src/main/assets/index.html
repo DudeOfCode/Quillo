@@ -195,7 +195,7 @@ const sync=()=>{
 
 function canSplit(b){
   if(!/^(P|DIV|BLOCKQUOTE)$/.test(b.tagName)) return false;
-  if(b.classList.contains('sb')||b.classList.contains('pb')||b.dataset.kl) return false;
+  if(b.classList.contains('sb')||b.classList.contains('pb')||b.dataset.kl||b.dataset.toc) return false;
   if(b.querySelector('img,table,ul,ol,h1,h2,h3,h4,h5,h6')) return false;
   return (b.textContent || '').replace(/\s+/g,' ').trim().length > 120;
 }
@@ -336,6 +336,7 @@ function layout(){
   const pages = Math.max(1, Math.ceil(bt / H));
   ed.style.minHeight = pages * H + 'px';
   paper.querySelectorAll('.pf,.pl,.cm').forEach(e => e.remove());
+  window.__pgLabels = [];
   let n = 0, prev = -1;
   for(let p = 0; p < pages; p++){
     const s = sbP.filter(x => x < p).length;
@@ -356,6 +357,7 @@ function layout(){
     f.style.pointerEvents = 'none';
     f.style.zIndex = '2';
     f.textContent = fmtN(n, c.fmt);
+    window.__pgLabels[p] = c.fmt == 'none' ? String(n) : fmtN(n, c.fmt);
     paper.appendChild(f);
     if(p < pages - 1){
       const d = document.createElement('div');
@@ -594,7 +596,7 @@ function pfmt(cs){const n=v=>Math.round((parseFloat(v)||0)*15),fs=parseFloat(cs.
  const sp={before:n(cs.paddingTop),after:n(cs.paddingBottom)};if(lh&&fs){sp.line=Math.round(lh/(fs*1.17)*240);sp.lineRule=D().LineRuleType.AUTO}
  const ind={left:n(cs.marginLeft),right:n(cs.marginRight)};if(ti>0)ind.firstLine=n(ti);else if(ti<0)ind.hanging=n(-ti);return{spacing:sp,indent:ind}}
 function para(c,o={}){const cs=getComputedStyle(c),t=c.tagName,A=D().AlignmentType;
- return new (D().Paragraph)({children:runs(c),alignment:{center:A.CENTER,right:A.RIGHT,justify:A.JUSTIFIED}[cs.textAlign]||A.LEFT,heading:/^H[1-3]$/.test(t)?D().HeadingLevel['HEADING_'+t[1]]:undefined,...pfmt(cs),...o})}
+ return new (D().Paragraph)({children:runs(c),alignment:{center:A.CENTER,right:A.RIGHT,justify:A.JUSTIFIED}[cs.textAlign]||A.LEFT,heading:/^H[1-6]$/.test(t)?D().HeadingLevel['HEADING_'+t[1]]:undefined,...pfmt(cs),...o})}
 let numCfg=[];
 function list(l,lv,ref){const out=[];for(const li of l.children){if(li.tagName!='LI')continue;
  out.push(para(li,ref?{numbering:{reference:ref,level:lv}}:{bullet:{level:lv}}));
@@ -608,7 +610,7 @@ function cell(td){const cs=getComputedStyle(td),b={};
 function table(t){const rows=[...t.rows],cw=[];[...rows[0].cells].forEach(c=>{for(let i=0;i<c.colSpan;i++)cw.push(Math.round(c.offsetWidth*15/c.colSpan))});
  return new (D().Table)({indent:{size:Math.round((parseFloat(getComputedStyle(t).marginLeft)||0)*15),type:D().WidthType.DXA},width:{size:cw.reduce((a,b)=>a+b,0),type:D().WidthType.DXA},columnWidths:cw,borders:D().TableBorders.NONE,
   rows:rows.map(r=>new (D().TableRow)({height:{value:Math.round(r.offsetHeight*15),rule:D().HeightRule.ATLEAST},children:[...r.cells].map(cell)}))})}
-function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];if(c.classList&&c.classList.contains('pb'))return[new (D().Paragraph)({children:[new (D().PageBreak)()]})];
+function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];if(c.dataset&&c.dataset.toc&&window.tocPara)return[window.tocPara(c)];if(c.classList&&c.classList.contains('pb'))return[new (D().Paragraph)({children:[new (D().PageBreak)()]})];
  const t=c.tagName;if(t=='UL')return list(c,0);if(t=='OL'){const r='ol'+numCfg.length;numCfg.push({reference:r,levels:[0,1,2,3].map(l=>({level:l,format:'decimal',text:'%'+(l+1)+'.',alignment:'left',style:{paragraph:{indent:{left:720*(l+1),hanging:360}}}}))});return list(c,0,r)}
  if(t=='TABLE')return[table(c),new (D().Paragraph)('')];return[para(c)]}
 async function expDocx(sa){
@@ -745,4 +747,5 @@ if(innerWidth<700)$('#ribbon').classList.add('collapsed');
 </script>
 <script src="imageedit.js"></script>
 <script src="uitools.js"></script>
+<script src="toc.js"></script>
 </body></html>
