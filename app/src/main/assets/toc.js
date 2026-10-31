@@ -11,6 +11,8 @@ const css=document.createElement('style');css.textContent=`
 .toc-t{flex:0 1 auto;min-width:0}.toc-n{flex:none}
 .toc-d{flex:1 1 24px;min-width:18px;margin:0 4px;align-self:baseline;height:0;border-bottom:1.5px dotted #222}
 .toc-d[data-l=dash]{border-bottom:1.5px dashed #222}.toc-d[data-l=line]{border-bottom:1px solid #222}.toc-d[data-l=none]{border-bottom:0}.toc-d.toc-gap{flex:0 0 12px}
+/* contents links never change colour: not on tap, not when visited */
+#ed p.toc-e,#ed p.toc-e *,#ed p.toc-e:active,#ed p.toc-e:focus,#ed p.toc-e:visited{color:#000!important;text-decoration:none!important;-webkit-tap-highlight-color:transparent;outline:0}
 #ed .toc-flash{background-color:rgba(255,226,64,.65);transition:background-color .5s}
 #ed p.toc-empty{color:#667;font-style:italic;display:block}
 #tocdlg{position:fixed;inset:0;background:#000a;z-index:62;display:none;align-items:center;justify-content:center;padding:12px}#tocdlg.on{display:flex}
@@ -81,8 +83,10 @@ dlg.addEventListener('mousedown',e=>{if(!/INPUT|SELECT/.test(e.target.tagName))e
 function goTo(en){let h=ed.querySelector('[data-hid="'+en.dataset.t+'"]');
  if(!h){const t=(en.querySelector('.toc-t')||en).textContent.trim();h=headings(6).find(x=>x.textContent.trim().replace(/\s+/g,' ')===t)}
  if(!h){toast('Heading not found – update the table');return}
- const w=document.getElementById('wrap'),wr=w.getBoundingClientRect(),hr=h.getBoundingClientRect();
- w.scrollTo({top:Math.max(0,w.scrollTop+(hr.top-wr.top)-18),behavior:'smooth'});
+ const w=document.getElementById('wrap');
+ /* let the engine do the scrolling (correct under any zoom), then fine-tune until the heading sits at the top */
+ h.scrollIntoView({block:'start',behavior:'auto'});
+ let n=0,last=1e9;(function fix(){const d=h.getBoundingClientRect().top-w.getBoundingClientRect().top-18;if(Math.abs(d)>3&&Math.abs(d)<last&&n++<14){last=Math.abs(d);w.scrollTop+=d;requestAnimationFrame(fix)}})();
  h.classList.add('toc-flash');setTimeout(()=>h.classList.remove('toc-flash'),1500)}
 let tap=null,lastGo=0;
 const hit=e=>e.target.closest&&e.target.closest('.toc-e');
@@ -106,10 +110,10 @@ window.tocPara=c=>{const D=window.docx;
  if(c.classList.contains('toc-title'))return new D.Paragraph({children:[new D.TextRun({text:c.textContent.trim(),bold:true,size:32,color:'2F5496'})],spacing:{after:200}});
  const lv=+c.dataset.lv||1,t=c.querySelector('.toc-t'),n=c.querySelector('.toc-n'),txt=t?t.textContent:c.textContent;
  const anchor=c.dataset.t?'_Toc'+c.dataset.t:null,link=kids=>anchor?[new D.InternalHyperlink({anchor,children:kids})]:kids;
- if(!n)return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},children:link([new D.TextRun({text:txt})])});
+ if(!n)return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},children:link([new D.TextRun({text:txt,color:'000000',underline:{type:D.UnderlineType.NONE}})])});
  const lead={dots:D.LeaderType.DOT,dash:D.LeaderType.HYPHEN,line:D.LeaderType.UNDERSCORE,none:D.LeaderType.NONE}[c.dataset.leader||'dots'];
  const right=c.querySelector('.toc-d')&&!c.querySelector('.toc-d').classList.contains('toc-gap');
  return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},tabStops:right?[{type:D.TabStopType.RIGHT,position:Math.round((paper.offsetWidth-mg.l-mg.r)*15),leader:lead}]:[],
-  children:link(right?[new D.TextRun({text:txt}),new D.TextRun({children:[new D.Tab(),n.textContent]})]:[new D.TextRun({text:txt+'  '+n.textContent})])})};
+  children:link(right?[new D.TextRun({text:txt,color:'000000',underline:{type:D.UnderlineType.NONE}}),new D.TextRun({children:[new D.Tab(),n.textContent],color:'000000',underline:{type:D.UnderlineType.NONE}})]:[new D.TextRun({text:txt+'  '+n.textContent,color:'000000',underline:{type:D.UnderlineType.NONE}})])})};
 window.openToc=open;
 })();
