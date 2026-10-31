@@ -164,3 +164,24 @@ window.toggleHL=function(){restore();const r=saved;if(!r||r.collapsed){toast('Se
 const hc=$('#hc');if(hc){const b=document.createElement('button');b.id='hlBtn';b.title='Highlight – tap again to remove';
  b.innerHTML='<svg viewBox="0 0 24 24"><path d="m4 16 8-8 4 4-8 8H4zM14 6l2-2 4 4-2 2"/></svg>';hc.before(b);b.onclick=()=>window.toggleHL()}
 })();
+
+/* The Home tab always shows the style of the text under the cursor (Normal, Heading 1 ...), its font, size and B/I/U/alignment state */
+(function(){
+const $=s=>document.querySelector(s),blk=$('#blk'),ff=$('#ff'),fs=$('#fs');let raf=0,tmpF=null,tmpS=null;
+const css=document.createElement('style');css.textContent='.p button.act{background:var(--active,#e3ebff)!important;color:var(--acc,#2f6fed)!important;border-color:var(--acc,#2f6fed)!important}';document.head.appendChild(css);
+if(blk)['h4','h5','h6'].forEach(v=>{if(![...blk.options].some(o=>o.value==v))blk.add(new Option('Heading '+v[1],v))});
+const BL=/^(P|DIV|H[1-6]|LI|TD|TH|BLOCKQUOTE)$/;
+function upd(){raf=0;const s=getSelection();if(!s.rangeCount||!ed.contains(s.anchorNode)||document.activeElement!==ed||window.__selFrozen)return;
+ let n=s.anchorNode;const el=n.nodeType==3?n.parentElement:n;let b=el;while(b&&b!==ed&&!BL.test(b.tagName))b=b.parentElement;
+ if(blk&&b&&b!==ed){const t=/^H[1-6]$/.test(b.tagName)?b.tagName.toLowerCase():'p';blk.value=t}
+ if(!el)return;const cs=getComputedStyle(el);
+ if(ff){const fam=(cs.fontFamily.split(',')[0]||'').replace(/["']/g,'').trim();let o=[...ff.options].find(x=>x.text.toLowerCase()==fam.toLowerCase());
+  if(!o&&fam){if(tmpF)tmpF.remove();tmpF=o=new Option(fam,fam);ff.add(o)}if(o)ff.value=o.value}
+ if(fs){const pt=Math.round(parseFloat(cs.fontSize)*0.75*2)/2,v=String(pt);let o=[...fs.options].find(x=>x.value==v||x.text==v);
+  if(!o&&pt){if(tmpS)tmpS.remove();tmpS=o=new Option(v,v);const i=[...fs.options].findIndex(x=>+x.value>pt);i<0?fs.add(o):fs.add(o,i)}if(o)fs.value=o.value}
+ document.querySelectorAll('.p [data-c]').forEach(btn=>{const c=btn.dataset.c;if(/^(bold|italic|underline|strikeThrough|subscript|superscript|justifyLeft|justifyCenter|justifyRight|justifyFull|insertUnorderedList|insertOrderedList)$/.test(c)){let on=false;try{on=document.queryCommandState(c)}catch(e){}btn.classList.toggle('act',!!on)}})}
+document.addEventListener('selectionchange',()=>{if(!raf)raf=requestAnimationFrame(upd)});
+ed.addEventListener('input',()=>{if(!raf)raf=requestAnimationFrame(upd)});ed.addEventListener('focus',()=>{if(!raf)raf=requestAnimationFrame(upd)});
+if(blk)blk.addEventListener('change',()=>setTimeout(()=>{if(!raf)raf=requestAnimationFrame(upd)},60));
+})();
+

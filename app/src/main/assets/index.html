@@ -596,7 +596,7 @@ function pfmt(cs){const n=v=>Math.round((parseFloat(v)||0)*15),fs=parseFloat(cs.
  const sp={before:n(cs.paddingTop),after:n(cs.paddingBottom)};if(lh&&fs){sp.line=Math.round(lh/(fs*1.17)*240);sp.lineRule=D().LineRuleType.AUTO}
  const ind={left:n(cs.marginLeft),right:n(cs.marginRight)};if(ti>0)ind.firstLine=n(ti);else if(ti<0)ind.hanging=n(-ti);return{spacing:sp,indent:ind}}
 function para(c,o={}){const cs=getComputedStyle(c),t=c.tagName,A=D().AlignmentType;
- return new (D().Paragraph)({children:runs(c),alignment:{center:A.CENTER,right:A.RIGHT,justify:A.JUSTIFIED}[cs.textAlign]||A.LEFT,heading:/^H[1-6]$/.test(t)?D().HeadingLevel['HEADING_'+t[1]]:undefined,...pfmt(cs),...o})}
+ return new (D().Paragraph)({children:(c.dataset&&c.dataset.hid)?[new (D().Bookmark)({id:'_Toc'+c.dataset.hid,children:runs(c)})]:runs(c),alignment:{center:A.CENTER,right:A.RIGHT,justify:A.JUSTIFIED}[cs.textAlign]||A.LEFT,heading:/^H[1-6]$/.test(t)?D().HeadingLevel['HEADING_'+t[1]]:undefined,...pfmt(cs),...o})}
 let numCfg=[];
 function list(l,lv,ref){const out=[];for(const li of l.children){if(li.tagName!='LI')continue;
  out.push(para(li,ref?{numbering:{reference:ref,level:lv}}:{bullet:{level:lv}}));
@@ -632,7 +632,7 @@ async function expPdf(sa){
   const pdf=new jspdf.jsPDF({unit:'px',format:[W,H],orientation:W>H?'l':'p',hotfixes:['px_scaling']});
   for(let p=0;p<pages;p++){toast('Building PDF… page '+(p+1)+' of '+pages);
    const cv=await html2canvas(paper,{scale:1.5,backgroundColor:'#fff',useCORS:true,x:0,y:p*H,width:W,height:H});
-   if(p)pdf.addPage([W,H],W>H?'l':'p');pdf.addImage(cv.toDataURL('image/jpeg',.92),'JPEG',0,0,W,H)}
+   if(p)pdf.addPage([W,H],W>H?'l':'p');pdf.addImage(cv.toDataURL('image/jpeg',.92),'JPEG',0,0,W,H);if(window.tocLinks)window.tocLinks(pdf,p,H)}
   await save(pdf.output('blob'),fname('.pdf'),sa);
  }catch(e){console.error(e);toast('PDF export failed: '+(e&&e.message||e))}finally{paper.classList.remove('exporting');zz.style.zoom=old}}
 $('#bPdf').onclick=()=>expPdf(false);

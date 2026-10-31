@@ -11,6 +11,7 @@ const css=document.createElement('style');css.textContent=`
 .toc-t{flex:0 1 auto;min-width:0}.toc-n{flex:none}
 .toc-d{flex:1 1 24px;min-width:18px;margin:0 4px;align-self:baseline;height:0;border-bottom:1.5px dotted #222}
 .toc-d[data-l=dash]{border-bottom:1.5px dashed #222}.toc-d[data-l=line]{border-bottom:1px solid #222}.toc-d[data-l=none]{border-bottom:0}.toc-d.toc-gap{flex:0 0 12px}
+#ed .toc-flash{background-color:rgba(255,226,64,.65);transition:background-color .5s}
 #ed p.toc-empty{color:#667;font-style:italic;display:block}
 #tocdlg{position:fixed;inset:0;background:#000a;z-index:62;display:none;align-items:center;justify-content:center;padding:12px}#tocdlg.on{display:flex}
 #tocdlg .card{background:#fff;color:#111;border-radius:18px;padding:16px;width:min(100%,380px);max-height:96vh;overflow:auto;box-shadow:0 14px 40px #0008;font:14px system-ui,sans-serif}
@@ -76,24 +77,39 @@ f('toc-up').onclick=()=>{refresh(read());dlg.classList.remove('on')};
 f('toc-rm').onclick=()=>{tocEls().forEach(e=>e.remove());layout();dlg.classList.remove('on');toast('Table of contents removed')};
 f('toc-x').onclick=()=>dlg.classList.remove('on');
 dlg.addEventListener('mousedown',e=>{if(!/INPUT|SELECT/.test(e.target.tagName))e.preventDefault()});
-/* tap an entry = jump to the heading, tap the title = options */
-ed.addEventListener('click',e=>{const en=e.target.closest&&e.target.closest('.toc-e'),ti=e.target.closest&&e.target.closest('.toc-title');
- if(ti){open();return}
- if(en&&en.dataset.t){const h=ed.querySelector('[data-hid="'+en.dataset.t+'"]');if(h)h.scrollIntoView({block:'start',behavior:'smooth'});return}
- if(en&&en.classList.contains('toc-empty'))open()});
+/* tap an entry = jump to the heading (like a Word contents list), tap the title = options */
+function goTo(en){let h=ed.querySelector('[data-hid="'+en.dataset.t+'"]');
+ if(!h){const t=(en.querySelector('.toc-t')||en).textContent.trim();h=headings(6).find(x=>x.textContent.trim().replace(/\s+/g,' ')===t)}
+ if(!h){toast('Heading not found – update the table');return}
+ const w=document.getElementById('wrap'),wr=w.getBoundingClientRect(),hr=h.getBoundingClientRect();
+ w.scrollTo({top:Math.max(0,w.scrollTop+(hr.top-wr.top)-18),behavior:'smooth'});
+ h.classList.add('toc-flash');setTimeout(()=>h.classList.remove('toc-flash'),1500)}
+let tap=null,lastGo=0;
+const hit=e=>e.target.closest&&e.target.closest('.toc-e');
+function act(e){const en=hit(e),ti=e.target.closest&&e.target.closest('.toc-title');
+ if(ti){open();return true}
+ if(en&&en.dataset.t){if(Date.now()-lastGo>400){lastGo=Date.now();goTo(en)}return true}
+ if(en&&en.classList.contains('toc-empty')){open();return true}return false}
+ed.addEventListener('pointerdown',e=>{tap=hit(e)||(e.target.closest&&e.target.closest('.toc-title'))?{x:e.clientX,y:e.clientY,t:Date.now()}:null});
+ed.addEventListener('pointerup',e=>{if(!tap)return;const m=Math.hypot(e.clientX-tap.x,e.clientY-tap.y),d=Date.now()-tap.t;tap=null;if(m<12&&d<700)act(e)});
+ed.addEventListener('click',e=>{act(e)});
 /* Insert tab button + heading 4 in the style list */
 const anchor=document.getElementById('iPaste')||document.getElementById('iBlank');
 if(anchor){const b=document.createElement('button');b.id='iToc';b.title='Automatic table of contents';
  b.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h10M4 18h10M17 6h3M17 12h3M17 18h3"/></svg>Contents';anchor.after(b);b.onclick=open}
-const blk=document.getElementById('blk');if(blk&&![...blk.options].some(o=>o.value=='h4'))blk.add(new Option('Heading 4','h4'));
+const blk=document.getElementById('blk');if(blk)['h4','h5','h6'].forEach(v=>{if(![...blk.options].some(o=>o.value==v))blk.add(new Option('Heading '+v[1],v))});
 /* Word export: entries become paragraphs with a right tab + leader */
+window.tocLinks=(pdf,p,H)=>{const PR=paper.getBoundingClientRect(),k=PR.width/paper.offsetWidth;
+ tocEls().forEach(e=>{if(!e.dataset.t)return;const h=ed.querySelector('[data-hid="'+e.dataset.t+'"]');if(!h)return;const r=e.getBoundingClientRect(),y=(r.top-PR.top)/k;
+  if(y<p*H||y>=(p+1)*H)return;try{pdf.link((r.left-PR.left)/k,y-p*H,r.width/k,r.height/k,{pageNumber:pageOf(h)+1})}catch(x){}})};
 window.tocPara=c=>{const D=window.docx;
  if(c.classList.contains('toc-title'))return new D.Paragraph({children:[new D.TextRun({text:c.textContent.trim(),bold:true,size:32,color:'2F5496'})],spacing:{after:200}});
  const lv=+c.dataset.lv||1,t=c.querySelector('.toc-t'),n=c.querySelector('.toc-n'),txt=t?t.textContent:c.textContent;
- if(!n)return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},children:[new D.TextRun({text:txt})]});
+ const anchor=c.dataset.t?'_Toc'+c.dataset.t:null,link=kids=>anchor?[new D.InternalHyperlink({anchor,children:kids})]:kids;
+ if(!n)return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},children:link([new D.TextRun({text:txt})])});
  const lead={dots:D.LeaderType.DOT,dash:D.LeaderType.HYPHEN,line:D.LeaderType.UNDERSCORE,none:D.LeaderType.NONE}[c.dataset.leader||'dots'];
  const right=c.querySelector('.toc-d')&&!c.querySelector('.toc-d').classList.contains('toc-gap');
  return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},tabStops:right?[{type:D.TabStopType.RIGHT,position:Math.round((paper.offsetWidth-mg.l-mg.r)*15),leader:lead}]:[],
-  children:right?[new D.TextRun({text:txt}),new D.TextRun({children:[new D.Tab(),n.textContent]})]:[new D.TextRun({text:txt+'  '+n.textContent})]})};
+  children:link(right?[new D.TextRun({text:txt}),new D.TextRun({children:[new D.Tab(),n.textContent]})]:[new D.TextRun({text:txt+'  '+n.textContent})])})};
 window.openToc=open;
 })();
