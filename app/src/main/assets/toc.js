@@ -3,7 +3,7 @@
    page numbering of each section (1,2,3 / i,ii,iii / I,II,III). Tap an entry to jump, tap the title to edit. */
 (function(){
 const $=s=>document.querySelector(s);
-const DEF={title:'Table of Contents',levels:3,nums:true,right:true,leader:'dots'};
+const DEF={title:'Table of Contents',levels:3,nums:true,right:true,leader:'dots',smart:true};
 let busy=false,lastSig='',uid=0,timer=null;
 const css=document.createElement('style');css.textContent=`
 #ed p.toc-title{margin:0;padding:0 0 8px;font:700 21.33px/1.25 Calibri,Carlito,sans-serif;color:#2f5496;user-select:none;cursor:pointer;text-align:left;text-indent:0}
@@ -28,23 +28,54 @@ document.head.appendChild(css);
 
 const tocEls=()=>[...ed.children].filter(e=>e.dataset&&e.dataset.toc);
 const getOpts=()=>{const t=tocEls().find(e=>e.dataset.opts);try{return t?JSON.parse(t.dataset.opts):null}catch(e){return null}};
-const headings=lv=>[...ed.querySelectorAll('h1,h2,h3,h4,h5,h6')].filter(h=>!h.closest('[data-toc]')&&!h.dataset.notoc&&+h.tagName[1]<=lv&&h.textContent.trim());
+/* ---------- smart heading detection: real headings + "CHAPTER ONE", "1. Title", "1.1 Title", "1.1.1 Title", "A. Title", ABSTRACT, REFERENCES ... ---------- */
+const NUMW='one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty';
+const reCh=new RegExp('^(chapter|part|unit)\\s+([0-9]+|[ivxlc]+|'+NUMW+')\\b[\\s:.\\u2013\\u2014-]*(.*)$','i');
+const reKey=/^(abstract|acknowledg(?:e)?ments?|declaration|certification|dedication|references|bibliography|appendix(?:es)?(?:\s+[a-z0-9]+)?|list of (?:tables|figures|abbreviations|plates|symbols))\s*$/i;
+const reMulti=/^(\d+(?:\.\d+)+)\.?\s*(\S.*)$/,reSingle=/^(\d+)[.)]\s*(\S.*)$/,reLetter=/^([A-Z])[.)]\s*(\S.*)$/;
+const txtOf=el=>el.textContent.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+function emph(el,t){const L=t.replace(/[^A-Za-z]/g,''),caps=L.length>2&&L===L.toUpperCase();let bold=false;const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;
+ while(n=w.nextNode()){if(n.textContent.trim()){bold=+getComputedStyle(n.parentElement).fontWeight>=600;break}}return{caps,bold}}
+const isBlk=b=>b&&/^(P|DIV)$/.test(b.tagName)&&!b.dataset.toc&&!b.classList.contains('sb')&&!b.classList.contains('pb');
+function sib(b,dir){let n=dir<0?b.previousElementSibling:b.nextElementSibling;while(n&&isBlk(n)&&!txtOf(n)&&!n.querySelector('img'))n=dir<0?n.previousElementSibling:n.nextElementSibling;return n}
+function collect(lv,smart){const items=[];
+ ed.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h=>{if(h.closest('[data-toc]')||h.dataset.notoc)return;const t=txtOf(h);if(t&&+h.tagName[1]<=6)items.push({el:h,lv:+h.tagName[1],text:t})});
+ if(smart){const skip=new Set();
+  [...ed.children].filter(isBlk).forEach(b=>{if(skip.has(b)||b.querySelector('table,img'))return;const t=txtOf(b);if(!t||t.length>150)return;const words=t.split(' ').length,sent=/[.;,]$/.test(t);let m;
+   if(m=t.match(reCh)){if(words>16)return;let text=t.replace(/\s*[:\-–—]\s*$/,'');
+    if(!m[3]){const nx=sib(b,1);if(isBlk(nx)){const u=txtOf(nx);if(u&&u.split(' ').length<=10&&!/[.;,]$/.test(u)&&!reMulti.test(u)&&!reSingle.test(u)&&!reCh.test(u)){const e=emph(nx,u);if(e.caps||e.bold){text=text+': '+u;skip.add(nx)}}}}
+    items.push({el:b,lv:1,text,smart:1});return}
+   if(reKey.test(t)&&words<=5){items.push({el:b,lv:1,text:t,smart:1});return}
+   if(m=t.match(reMulti)){if(words>18||sent)return;const e=emph(b,t);if(!(e.caps||e.bold||words<=12))return;items.push({el:b,lv:Math.min(6,m[1].split('.').length),text:t,smart:1});return}
+   if(m=t.match(reSingle)){if(words>14||sent)return;const e=emph(b,t);if(!(e.caps||e.bold))return;const p=sib(b,-1),n=sib(b,1);
+    if((isBlk(p)&&reSingle.test(txtOf(p)))||(isBlk(n)&&reSingle.test(txtOf(n))))return; /* consecutive 1. 2. 3. lines are a list, not headings */
+    items.push({el:b,lv:1,text:t,smart:1});return}
+   if(m=t.match(reLetter)){if(words>10||sent)return;const e=emph(b,t);if(!e.bold)return;const p=sib(b,-1),n=sib(b,1);
+    if((isBlk(p)&&reLetter.test(txtOf(p)))||(isBlk(n)&&reLetter.test(txtOf(n))))return;items.push({el:b,lv:0,text:t,smart:1,letter:1});return}
+   /* unnumbered titles: a short BOLD or ALL-CAPS line standing right above a body paragraph */
+   if(!sent&&!/[:?!]$/.test(t)&&words<=10&&!/^(table|figure|fig\.?|plate|equation|eq\.?)\s*\d/i.test(t)&&!/^(table of )?contents?$/i.test(t)){
+    const e=emph(b,t);if(e.caps||e.bold){const n=sib(b,1);if(isBlk(n)&&txtOf(n).split(' ').length>=20&&!reSingle.test(txtOf(n))&&!reMulti.test(txtOf(n)))items.push({el:b,lv:e.caps?1:2,text:t,smart:1,unn:1})}}})}
+ items.sort((a,b)=>a.el.compareDocumentPosition(b.el)&4?-1:1);
+ let prev=null,seen1=false;items.forEach(it=>{if(it.letter)it.lv=Math.min(6,(prev?prev.lv:1)+1);else{if(it.unn&&it.lv==2&&!seen1)it.lv=1;prev=it}if(it.lv==1)seen1=true});
+ return items.filter(it=>it.lv<=lv)}
+const headings=lv=>collect(lv,true).map(i=>i.el);
 function pageOf(el){const PR=paper.getBoundingClientRect(),k=PR.width/paper.offsetWidth,H=dim()[1],r=el.getBoundingClientRect();return Math.max(0,Math.floor(((r.top-PR.top)/k+2)/H))}
 const label=p=>(window.__pgLabels&&window.__pgLabels[p])||String(p+1);
 const mk=(tag,cls)=>{const e=document.createElement(tag);e.className=cls;e.dataset.toc='1';e.contentEditable='false';return e};
 function build(o,nums){const out=[],t=mk('p','toc-title');t.dataset.opts=JSON.stringify(o);t.dataset.kn='1';t.textContent=o.title||'Table of Contents';out.push(t);
- const hs=headings(o.levels);
- if(!hs.length){const e=mk('p','toc-e toc-empty');e.dataset.lv='1';e.textContent='No table of contents entries found. Apply Heading 1–3 styles to your titles, then tap here and choose Update.';out.push(e)}
- hs.forEach(h=>{const id=h.dataset.hid||(h.dataset.hid='h'+(++uid)+Math.random().toString(36).slice(2,6)),lv=+h.tagName[1],e=mk('p','toc-e');
+ ed.querySelectorAll('[data-hlv]').forEach(e=>e.removeAttribute('data-hlv'));
+ const hs=collect(o.levels,o.smart!==false);
+ if(!hs.length){const e=mk('p','toc-e toc-empty');e.dataset.lv='1';e.textContent='No table of contents entries found. Apply Heading styles, or number your titles (CHAPTER ONE, 1.1, 1.1.1), then tap here and choose Update.';out.push(e)}
+ hs.forEach(it=>{const h=it.el,id=h.dataset.hid||(h.dataset.hid='h'+(++uid)+Math.random().toString(36).slice(2,6)),lv=it.lv,e=mk('p','toc-e');if(it.smart)h.dataset.hlv=lv;
   e.dataset.t=id;e.dataset.lv=lv;e.dataset.leader=o.leader;e.style.marginLeft=((lv-1)*14.67)+'px';
-  const s=document.createElement('span');s.className='toc-t';s.textContent=h.textContent.trim().replace(/\s+/g,' ');e.appendChild(s);
+  const s=document.createElement('span');s.className='toc-t';s.textContent=it.text;e.appendChild(s);
   if(o.nums){const d=document.createElement('span');d.className='toc-d';d.dataset.l=o.right?o.leader:'none';if(!o.right)d.classList.add('toc-gap');e.appendChild(d);
    const n=document.createElement('span');n.className='toc-n';n.textContent=nums[id]||'0';e.appendChild(n)}
   out.push(e)});
  return out}
 function setNums(){let ch=false;tocEls().forEach(e=>{if(!e.dataset.t)return;const h=ed.querySelector('[data-hid="'+e.dataset.t+'"]'),n=e.querySelector('.toc-n');if(!h||!n)return;
  const lab=label(pageOf(h));if(n.textContent!==lab){n.textContent=lab;ch=true}});return ch}
-const sig=o=>JSON.stringify(headings(o.levels).map(h=>[h.tagName,h.textContent.trim(),label(pageOf(h))]));
+const sig=o=>JSON.stringify(collect(o.levels,o.smart!==false).map(i=>[i.lv,i.text,label(pageOf(i.el))]));
 function refresh(o,quiet){if(busy)return;busy=true;
  try{const old=tocEls(),nums={};old.forEach(e=>{if(e.dataset.t){const n=e.querySelector('.toc-n');if(n)nums[e.dataset.t]=n.textContent}});
   const els=build(o,nums);
@@ -64,14 +95,15 @@ dlg.innerHTML=`<div class="card"><h3>Table of contents</h3>
 <div class="pre"><button data-p="Contents"><b>Automatic Table 1</b><i>Contents</i><i>Heading 1<em>1</em></i><i>&nbsp;&nbsp;Heading 2<em>2</em></i></button><button data-p="Table of Contents"><b>Automatic Table 2</b><i>Table of Contents</i><i>Heading 1<em>1</em></i><i>&nbsp;&nbsp;Heading 2<em>2</em></i></button></div>
 <label>Title<input type="text" id="toc-title"></label>
 <label>Show levels<select id="toc-lv">${[1,2,3,4,5,6].map(n=>`<option>${n}</option>`).join('')}</select></label>
+<label>Smart titles (CHAPTER, 1.1, 1.1.1)<input type="checkbox" id="toc-smart"></label>
 <label>Show page numbers<input type="checkbox" id="toc-num"></label>
 <label>Right-align page numbers<input type="checkbox" id="toc-right"></label>
 <label>Tab leader<select id="toc-leader"><option value="dots">Dots ........</option><option value="dash">Dashes - - - -</option><option value="line">Line ________</option><option value="none">None</option></select></label>
 <div class="btns"><button id="toc-x">Close</button><button id="toc-rm" class="dng">Remove</button><button id="toc-up">Update</button><button id="toc-ok" class="pri">Insert</button></div></div>`;
 document.body.appendChild(dlg);
 const f=id=>document.getElementById(id);
-function fill(o){f('toc-title').value=o.title;f('toc-lv').value=o.levels;f('toc-num').checked=o.nums;f('toc-right').checked=o.right;f('toc-leader').value=o.leader}
-const read=()=>({title:f('toc-title').value.trim()||'Table of Contents',levels:+f('toc-lv').value,nums:f('toc-num').checked,right:f('toc-right').checked,leader:f('toc-leader').value});
+function fill(o){f('toc-title').value=o.title;f('toc-lv').value=o.levels;f('toc-num').checked=o.nums;f('toc-smart').checked=o.smart!==false;f('toc-right').checked=o.right;f('toc-leader').value=o.leader}
+const read=()=>({title:f('toc-title').value.trim()||'Table of Contents',levels:+f('toc-lv').value,nums:f('toc-num').checked,smart:f('toc-smart').checked,right:f('toc-right').checked,leader:f('toc-leader').value});
 function open(){const o=getOpts(),has=tocEls().length>0;fill(o||DEF);f('toc-rm').style.display=has?'':'none';f('toc-up').style.display=has?'':'none';f('toc-ok').textContent=has?'Apply':'Insert';dlg.classList.add('on')}
 dlg.querySelectorAll('.pre button').forEach(b=>b.onclick=()=>{fill({...DEF,title:b.dataset.p});refresh(read());dlg.classList.remove('on')});
 f('toc-ok').onclick=()=>{refresh(read());dlg.classList.remove('on')};
