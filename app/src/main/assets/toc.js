@@ -110,10 +110,19 @@ window.tocPara=c=>{const D=window.docx;
  if(c.classList.contains('toc-title'))return new D.Paragraph({children:[new D.TextRun({text:c.textContent.trim(),bold:true,size:32,color:'2F5496'})],spacing:{after:200}});
  const lv=+c.dataset.lv||1,t=c.querySelector('.toc-t'),n=c.querySelector('.toc-n'),txt=t?t.textContent:c.textContent;
  const anchor=c.dataset.t?'_Toc'+c.dataset.t:null,link=kids=>anchor?[new D.InternalHyperlink({anchor,children:kids})]:kids;
- if(!n)return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},children:link([new D.TextRun({text:txt,color:'000000',underline:{type:D.UnderlineType.NONE}})])});
- const lead={dots:D.LeaderType.DOT,dash:D.LeaderType.HYPHEN,line:D.LeaderType.UNDERSCORE,none:D.LeaderType.NONE}[c.dataset.leader||'dots'];
- const right=c.querySelector('.toc-d')&&!c.querySelector('.toc-d').classList.contains('toc-gap');
- return new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},tabStops:right?[{type:D.TabStopType.RIGHT,position:Math.round((paper.offsetWidth-mg.l-mg.r)*15),leader:lead}]:[],
-  children:link(right?[new D.TextRun({text:txt,color:'000000',underline:{type:D.UnderlineType.NONE}}),new D.TextRun({children:[new D.Tab(),n.textContent],color:'000000',underline:{type:D.UnderlineType.NONE}})]:[new D.TextRun({text:txt+'  '+n.textContent,color:'000000',underline:{type:D.UnderlineType.NONE}})])})};
+ const run=o=>new D.TextRun({style:'Hyperlink',...o});
+ /* Word-native layout: the entries sit inside one TOC field (begin ... end), so Word / WPS / Polaris treat them as a real table of contents */
+ const ents=tocEls().filter(e=>e.dataset.t),first=ents[0]===c,last=ents[ents.length-1]===c,o=getOpts()||DEF;
+ const X=s=>{const c=D.ImportedXmlComponent.fromXmlString(s);return(c.root&&c.root[0])?c.root[0]:c};let head=[];
+ if(first&&anchor){try{head=[X('<w:r><w:fldChar w:fldCharType="begin"/></w:r>'),X('<w:r><w:instrText xml:space="preserve"> TOC \\o "1-'+o.levels+'" \\h \\z \\u </w:instrText></w:r>'),X('<w:r><w:fldChar w:fldCharType="separate"/></w:r>')]}catch(e){head=[]}}
+ let p;
+ if(!n)p=new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},children:head.concat(link([run({text:txt})]))});
+ else{
+  const lead={dots:D.LeaderType.DOT,dash:D.LeaderType.HYPHEN,line:D.LeaderType.UNDERSCORE,none:D.LeaderType.NONE}[c.dataset.leader||'dots'];
+  const right=c.querySelector('.toc-d')&&!c.querySelector('.toc-d').classList.contains('toc-gap');
+  p=new D.Paragraph({indent:{left:(lv-1)*220},spacing:{after:100},tabStops:right?[{type:D.TabStopType.RIGHT,position:Math.round((paper.offsetWidth-mg.l-mg.r)*15),leader:lead}]:[],
+   children:head.concat(link(right?[run({text:txt}),run({children:[new D.Tab(),n.textContent]})]:[run({text:txt+'  '+n.textContent})]))})}
+ if(last&&anchor){try{return[p,new D.Paragraph({children:[X('<w:r><w:fldChar w:fldCharType="end"/></w:r>')]})]}catch(e){}}
+ return p};
 window.openToc=open;
 })();

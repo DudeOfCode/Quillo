@@ -610,23 +610,19 @@ function cell(td){const cs=getComputedStyle(td),b={};
 function table(t){const rows=[...t.rows],cw=[];[...rows[0].cells].forEach(c=>{for(let i=0;i<c.colSpan;i++)cw.push(Math.round(c.offsetWidth*15/c.colSpan))});
  return new (D().Table)({indent:{size:Math.round((parseFloat(getComputedStyle(t).marginLeft)||0)*15),type:D().WidthType.DXA},width:{size:cw.reduce((a,b)=>a+b,0),type:D().WidthType.DXA},columnWidths:cw,borders:D().TableBorders.NONE,
   rows:rows.map(r=>new (D().TableRow)({height:{value:Math.round(r.offsetHeight*15),rule:D().HeightRule.ATLEAST},children:[...r.cells].map(cell)}))})}
-function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];if(c.dataset&&c.dataset.toc&&window.tocPara)return[window.tocPara(c)];if(c.classList&&c.classList.contains('pb'))return[new (D().Paragraph)({children:[new (D().PageBreak)()]})];
+function conv(c){if(c.nodeType==3)return c.textContent.trim()?[new (D().Paragraph)(c.textContent)]:[];if(c.nodeType!=1)return[];if(c.dataset&&c.dataset.toc&&window.tocPara){const r=window.tocPara(c);return Array.isArray(r)?r:[r]}if(c.classList&&c.classList.contains('pb'))return[new (D().Paragraph)({children:[new (D().PageBreak)()]})];
  const t=c.tagName;if(t=='UL')return list(c,0);if(t=='OL'){const r='ol'+numCfg.length;numCfg.push({reference:r,levels:[0,1,2,3].map(l=>({level:l,format:'decimal',text:'%'+(l+1)+'.',alignment:'left',style:{paragraph:{indent:{left:720*(l+1),hanging:360}}}}))});return list(c,0,r)}
  if(t=='TABLE')return[table(c),new (D().Paragraph)('')];return[para(c)]}
 async function expDocx(sa){
  try{numCfg=[];const d=D(),secs=[];let cur=[];
   for(const c of ed.children){if(c.classList.contains('sb')){secs.push(cur);cur=[]}else cur.push(...conv(c))}secs.push(cur);
   const NF={dec:d.NumberFormat.DECIMAL,ru:d.NumberFormat.UPPER_ROMAN,rl:d.NumberFormat.LOWER_ROMAN,none:d.NumberFormat.DECIMAL},AL={left:d.AlignmentType.LEFT,center:d.AlignmentType.CENTER,right:d.AlignmentType.RIGHT};
-  const doc=new d.Document({numbering:{config:numCfg.length?numCfg:[{reference:'x',levels:[{level:0,format:'decimal',text:'%1.',alignment:'left'}]}]},styles:{default:{document:{run:{font:'Calibri',size:22}}}},
+  const doc=new d.Document({numbering:{config:numCfg.length?numCfg:[{reference:'x',levels:[{level:0,format:'decimal',text:'%1.',alignment:'left'}]}]},styles:{default:{document:{run:{font:'Calibri',size:22}},hyperlink:{run:{color:'000000'}}},characterStyles:[{id:'FollowedHyperlink',name:'FollowedHyperlink',basedOn:'DefaultParagraphFont',run:{color:'000000'}}]},
    sections:secs.map((ch,i)=>{const c=getCfg(i),pn={formatType:NF[c.fmt]};if(c.start!==''&&c.start!=null)pn.start=parseInt(c.start)||0;
     return{properties:{type:d.SectionType.NEXT_PAGE,page:{size:{width:Math.round(psz[0]*15),height:Math.round(psz[1]*15),orientation:land?d.PageOrientation.LANDSCAPE:d.PageOrientation.PORTRAIT},margin:{header:Math.round((mg.h||48)*15),footer:Math.round((mg.f||48)*15),top:Math.round(mg.t*15),bottom:Math.round(mg.b*15),left:Math.round(mg.l*15),right:Math.round(mg.r*15)},pageNumbers:pn}},
      footers:{default:new d.Footer({children:[new d.Paragraph({alignment:AL[c.align],children:c.fmt=='none'?[]:[new d.TextRun({children:[d.PageNumber.CURRENT]})]})]})},
      children:ch.length?ch:[new d.Paragraph('')]}})});
-  const raw=await d.Packer.toBlob(doc);let out=raw;
-  try{const z=await JSZip.loadAsync(raw);let x=await z.file('word/document.xml').async('string');
-   x=x.replace(/ w:history="1"/g,' w:history="0"'); /* links are never marked as visited, so Word/WPS keep the original colour */
-   z.file('word/document.xml',x);out=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',compression:'DEFLATE'})}catch(e){out=raw}
-  await save(out,fname('.docx'),sa);
+  await save(await d.Packer.toBlob(doc),fname('.docx'),sa);
  }catch(e){console.error(e);toast('DOCX export failed: '+e.message)}}
 $('#bDocx').onclick=()=>expDocx(false);
 async function expPdf(sa){
