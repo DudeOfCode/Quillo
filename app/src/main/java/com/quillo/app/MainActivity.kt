@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
     @Volatile private var kbVisible = false
+    @Volatile private var hideNativeMenu = true
     private var pageReady = false
     private var pendingUri: Uri? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         web = object : WebView(this) {
             private fun hideMenu(cb: ActionMode.Callback?): ActionMode.Callback? {
                 if (cb == null) return null
+                if (!hideNativeMenu) return cb
                 return object : ActionMode.Callback2() {
                     override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
                         val ok = cb.onCreateActionMode(mode, menu); menu.clear(); return ok
@@ -218,6 +220,9 @@ class MainActivity : AppCompatActivity() {
 
     /** Bridge the web app calls to hand a generated file (docx / pdf) back to Android. */
     inner class SaverBridge {
+        @JavascriptInterface
+        fun setNativeMenu(show: Boolean) { hideNativeMenu = !show }
+
         @JavascriptInterface
         fun isKeyboardOpen(): Boolean = kbNow()
 
