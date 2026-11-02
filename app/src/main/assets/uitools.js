@@ -26,25 +26,48 @@ const st=document.createElement('style');st.textContent=`#tmenu{position:fixed;z
 const m=document.createElement('div');m.id='tmenu';
 m.innerHTML=BT.map(([a,l,md])=>`<button data-a="${a}" data-m="${md=='b'?'s':md}"><svg viewBox="0 0 24 24">${IC[a]}</svg><span>${l}</span></button>`).join('');
 document.body.appendChild(m);
+const IC2={fold:'<path d="m6 9 6 6 6-6"/>',off:'<path d="M18 6 6 18M6 6l12 12"/>'};
+m.insertAdjacentHTML('beforeend','<button data-a="off" data-m="x" class="toff"><svg viewBox="0 0 24 24">'+IC2.off+'</svg>Turn this menu off</button>');
+const fold=document.createElement('button');fold.id='tfold';fold.dataset.a='fold';fold.title='Fold into one button';fold.innerHTML='<svg viewBox="0 0 24 24">'+IC2.fold+'</svg>';m.appendChild(fold);
+const mini=document.createElement('button');mini.id='tmini';mini.title='Show the selection menu';mini.innerHTML='<svg viewBox="0 0 24 24">'+IC.more+'</svg>';document.body.appendChild(mini);
+mini.addEventListener('mousedown',e=>e.preventDefault());
+const css2=document.createElement('style');css2.textContent=`@keyframes tpop{from{transform:scale(.86);opacity:0}to{transform:none;opacity:1}}
+#tmenu.on,#tmini.on{animation:tpop .14s ease-out}
+#tmenu #tfold{position:absolute;right:-6px;top:-14px;width:34px;height:34px;border-radius:50%;background:#4a4e57;border:2px solid #fff3;padding:0;display:flex;flex-direction:row;align-items:center;justify-content:center;box-shadow:0 3px 10px #0007}
+#tmenu #tfold svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+#tmenu.caret #tfold{display:flex}
+#tmenu .toff{grid-column:1/-1;flex-direction:row!important;justify-content:center;gap:8px!important;font-size:12px!important;opacity:.8;margin-top:2px;border-top:1px solid #ffffff22;border-radius:0 0 12px 12px!important;padding:8px!important}
+#tmenu .toff svg{width:16px!important;height:16px!important}#tmenu.caret .toff{display:none!important}
+#tmini{position:fixed;z-index:45;display:none;width:46px;height:46px;border-radius:50%;background:#2f3135;border:0;padding:0;box-shadow:0 6px 18px #0009;align-items:center;justify-content:center}
+#tmini.on{display:flex}#tmini svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}`;document.head.appendChild(css2);
+/* menu mode: on | folded | off  (remembered) */
+let tmode='on';try{tmode=localStorage.getItem('quillo-tmenu')||'on'}catch(e){}
+function setMode(v,quiet){tmode=v;try{localStorage.setItem('quillo-tmenu',v)}catch(e){}
+ const sel=document.getElementById('tmode');if(sel)sel.value=v;
+ if(window.AndroidSaver&&AndroidSaver.setNativeMenu){try{AndroidSaver.setNativeMenu(v==='off')}catch(e){}} /* off = give the phone's own cut/copy/paste menu back */
+ lastKey='';if(!quiet&&v==='off')toast('Selection menu is off – turn it on in Home ▸ Selection menu');
+ if(!quiet&&v==='folded')toast('Menu folded – tap the round button to open it')}
+window.setTextMenuMode=setMode;
 m.querySelectorAll('[data-a=paste],[data-a=all],[data-a=page],[data-a=sec]').forEach(b=>b.dataset.m='both');
 const css=document.createElement('style');css.textContent='#tmenu [data-m=both]{display:flex!important}';document.head.appendChild(css);
 let mode=null,vis=false;
 const R=()=>window.__selFrozen&&window.__keepSel&&saved&&saved.collapsed?window.__keepSel:saved;
 function rangeRect(r){let b=r.getClientRects();b=b.length?b[0]:r.getBoundingClientRect();const all=r.getBoundingClientRect();return{top:b.top,bottom:(r.getClientRects().length?[...r.getClientRects()].pop().bottom:all.bottom),left:all.left,right:all.right,w:all.width}}
-function want(){if(document.getElementById('isel')&&document.getElementById('isel').classList.contains('on'))return null;
+function want(){if(tmode==='off')return null;if(document.getElementById('isel')&&document.getElementById('isel').classList.contains('on'))return null;
  if(document.getElementById('iedit')&&document.getElementById('iedit').classList.contains('on'))return null;
  const r=R();if(!r||!ed.contains(r.commonAncestorContainer))return null;
  const focused=document.activeElement===ed||window.__selFrozen;
  if(!r.collapsed&&focused)return'sel';if(r.collapsed&&caretOn&&document.activeElement===ed)return'caret';return null}
 let caretOn=false,lastKey='';
-function place(){const md=want();
- if(!md){if(vis){m.classList.remove('on');vis=false;mode=null}return}
- if(!vis||mode!==md){m.classList.add('on');m.classList.toggle('caret',md=='caret');if(md=='caret')m.classList.remove('more');mode=md;vis=true;lastKey=''}
- const r=R(),rc=rangeRect(r),key=[rc.top,rc.bottom,rc.left,rc.right,innerHeight,m.className].join();if(key===lastKey)return;lastKey=key;
- const mw=m.offsetWidth,mh=m.offsetHeight,topLim=document.getElementById('top').getBoundingClientRect().bottom+6;
+function place(){const md=want(),folded=tmode==='folded';
+ if(!md){if(vis){m.classList.remove('on');mini.classList.remove('on');vis=false;mode=null}return}
+ const el=folded?mini:m,other=folded?m:mini;
+ if(!vis||mode!==md||el.dataset.shown!=='1'){other.classList.remove('on');other.dataset.shown='0';el.classList.add('on');el.dataset.shown='1';m.classList.toggle('caret',md=='caret');if(md=='caret')m.classList.remove('more');mode=md;vis=true;lastKey=''}
+ const r=R(),rc=rangeRect(r),key=[rc.top,rc.bottom,rc.left,rc.right,innerHeight,m.className,tmode].join();if(key===lastKey)return;lastKey=key;
+ const mw=el.offsetWidth,mh=el.offsetHeight,topLim=document.getElementById('top').getBoundingClientRect().bottom+6;
  const dockEl=(!rb.classList.contains('collapsed')?rb:document.getElementById('tabs')),botLim=dockEl.getBoundingClientRect().top-6;
- let top=rc.top-mh-14;if(top<topLim)top=rc.bottom+(md=='sel'?40:14);if(top+mh>botLim)top=Math.max(topLim,Math.min(botLim-mh,(topLim+botLim)/2-mh/2));
- m.style.top=top+'px';m.style.left=Math.max(6,Math.min(innerWidth-mw-6,(rc.left+rc.right)/2-mw/2))+'px'}
+ let top=rc.top-mh-(folded?10:14);if(top<topLim)top=rc.bottom+(md=='sel'?40:14);if(top+mh>botLim)top=Math.max(topLim,Math.min(botLim-mh,(topLim+botLim)/2-mh/2));
+ el.style.top=top+'px';el.style.left=Math.max(6,Math.min(innerWidth-mw-6,(rc.left+rc.right)/2-mw/2))+'px'}
 (function loop(){place();requestAnimationFrame(loop)})();
 /* caret menu: tap on the caret again */
 let lastTap=null;
@@ -61,7 +84,10 @@ function selPage(){restore();const PR=paper.getBoundingClientRect(),k=PR.width/p
  const inP=kids().filter(b=>{const q=b.getBoundingClientRect(),t=(q.top-PR.top)/k,bt=(q.bottom-PR.top)/k;return bt>p*H+mg.t&&t<(p+1)*H-mg.b});selectBlocks(inP[0],inP[inP.length-1]);toast('Page '+(p+1)+' selected')}
 function selSection(){restore();const i=secIdx(),sb=sbs(),a=i==0?ed.firstElementChild:sb[i-1].nextElementSibling,b=sb[i]?sb[i].previousElementSibling:ed.lastElementChild;selectBlocks(a,b);toast('Section '+(i+1)+' selected')}
 async function paste(){try{const t=await navigator.clipboard.readText();restore();document.execCommand('insertText',false,t);sync()}catch(e){toast('Clipboard blocked – allow paste or use the keyboard')}}
+mini.addEventListener('click',()=>{setMode('on',true);lastKey=''});
 m.addEventListener('click',e=>{const a=e.target.closest('button')?.dataset.a;if(!a)return;
+ if(a=='fold'){setMode('folded');return}
+ if(a=='off'){setMode('off');return}
  if(a=='more'){m.classList.toggle('more');lastKey='';m.querySelector('[data-a=more] span').textContent=m.classList.contains('more')?'Less':'More';return}
  if(a=='all'){restore();document.execCommand('selectAll');caretOn=false;return}
  if(a=='page'){selPage();caretOn=false;return}if(a=='sec'){selSection();caretOn=false;return}
@@ -184,4 +210,10 @@ document.addEventListener('selectionchange',()=>{if(!raf)raf=requestAnimationFra
 ed.addEventListener('input',()=>{if(!raf)raf=requestAnimationFrame(upd)});ed.addEventListener('focus',()=>{if(!raf)raf=requestAnimationFrame(upd)});
 if(blk)blk.addEventListener('change',()=>setTimeout(()=>{if(!raf)raf=requestAnimationFrame(upd)},60));
 })();
+
+/* Home tab: Selection menu  ->  Show / Folded / Off */
+(function(){const h=document.getElementById('p-home');if(!h||document.getElementById('tmode'))return;
+ const g=document.createElement('div');g.className='grp';g.innerHTML='<span class="lb">Selection menu</span><select id="tmode"><option value="on">Show</option><option value="folded">Folded (one button)</option><option value="off">Off</option></select>';h.appendChild(g);
+ const s=g.querySelector('select');let cur='on';try{cur=localStorage.getItem('quillo-tmenu')||'on'}catch(e){}s.value=cur;s.addEventListener('change',()=>window.setTextMenuMode(s.value));
+ window.setTextMenuMode(cur,true)})();
 
